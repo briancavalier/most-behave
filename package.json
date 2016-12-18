@@ -1,0 +1,56 @@
+{
+  "name": "@most/behave",
+  "description": "behave",
+  "version": "1.0.0",
+  "author": "Your Name <you@wherever.com> (github.com/<you>)",
+  "bugs": {
+    "url": "https://github.com/mostjs/behave/issues"
+  },
+  "devDependencies": {
+    "@most/dom-event": "^1.3.2",
+    "@most/eslint-config-most": "^1.0.3",
+    "assert": "^1.4.1",
+    "babel-eslint": "^7.1.1",
+    "buba": "^4.0.1",
+    "eslint": "^3.12.1",
+    "eslint-config-standard": "^6.2.1",
+    "eslint-plugin-promise": "^3.4.0",
+    "eslint-plugin-standard": "^2.0.1",
+    "istanbul": "^1.1.0-alpha.1",
+    "jsinspect": "^0.8.0",
+    "mocha": "^3.2.0",
+    "most": "^1.1.1",
+    "rollup": "^0.37.0",
+    "rollup-plugin-buble": "^0.15.0",
+    "rollup-plugin-commonjs": "^6.0.0",
+    "rollup-plugin-node-resolve": "^2.0.0",
+    "uglify-js": "^2.7.5",
+    "umd-name-transform": "^1.0.1"
+  },
+  "files": [
+    "dist/behave.js",
+    "src"
+  ],
+  "homepage": "https://github.com/mostjs/behave#readme",
+  "license": "MIT",
+  "main": "dist/behave.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mostjs/behave.git"
+  },
+  "scripts": {
+    "build:add-inputs": "rollup -c examples/rollup.config.js -o examples/add-inputs/app.js examples/add-inputs/index.js",
+    "build": "npm run build-dist && uglifyjs dist/behave.js -o dist/behave.min.js",
+    "build-dist": "mkdir -p dist && rollup -c && rollup -c rollup.es.js",
+    "lint": "jsinspect src && jsinspect test && eslint src test",
+    "prepublish": "npm run build",
+    "preversion": "npm run build",
+    "test": "npm run lint && npm run unit-test",
+    "unit-test": "istanbul cover _mocha"
+  },
+  "dependencies": {
+    "@most/multicast": "^1.2.5",
+    "@most/prelude": "^1.4.1",
+    "most": "^1.1.1"
+  }
+}
