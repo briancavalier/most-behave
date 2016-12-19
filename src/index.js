@@ -1,6 +1,13 @@
-import { zip, constant, map as mapE, startWith, sampleWith } from 'most'
+import { zip, constant, map as mapE, startWith, sampleWith, timestamp } from 'most'
 import multicast from '@most/multicast'
 import { curry2, curry3 } from '@most/prelude'
+
+// Possibly useful:
+// 1. snapshot :: (a -> b -> c) -> Event a -> Behavior b -> Event c
+// 2. accum :: a -> Event (a -> a) -> Behavior a
+//    accum :: (a -> b -> c) -> a -> Event b -> Behavior c
+// 3. count :: Event a -> Behavior number
+// 4. when :: Behavior bool -> Event a -> Event a
 
 export const sample = curry2((event, behavior) => behavior.sample(event))
 
@@ -15,6 +22,19 @@ class Constant {
     return constant(this.value, stream)
   }
 }
+
+class Computed {
+  constructor (f) {
+    this.f = f
+  }
+
+  sample (stream) {
+    return mapE(this.f, timestamp(stream))
+  }
+}
+
+const getTime = ({ time }) => time
+export const time = new Computed(getTime)
 
 export const stepper = curry2((initial, updates) =>
   new Stepper(startWith(initial, updates)))
