@@ -1,7 +1,12 @@
 import { time, map, sample } from '../../src/index'
-import { periodic } from 'most'
+import { periodic, map as mapE, filter, switchLatest, startWith } from 'most'
+import { click } from '@most/dom-event'
 
-// formatting
+// DOM Event helpers
+const matches = selector => e => e.target.matches(selector)
+const getValue = e => e.target.value
+
+// Formatting
 const toDate = ms => new Date(ms)
 const pad = n => n < 10 ? `0${Math.floor(n)}` : `${Math.floor(n)}`
 const render = el => date =>
@@ -10,5 +15,10 @@ const render = el => date =>
 // We'll put the clock here
 const el = document.getElementById('app')
 
+// Map button clicks to a periodic event stream we'll use to sample
+// the current time
+const clicks = filter(matches('button'), click(document))
+const sampler = switchLatest(mapE(periodic, startWith(1000, mapE(Number, mapE(getValue, clicks)))))
+
 // Sample time at some interval and display it
-sample(periodic(10), map(toDate, time)).observe(render(el))
+sample(sampler, map(toDate, time)).observe(render(el))

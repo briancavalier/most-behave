@@ -2623,7 +2623,7 @@ SampleSink.prototype._notify = function () {
 
 SampleSink.prototype.event = function (t) {
   if (this.active) {
-    this.sink.event(t, invoke(this.f, map$1(getValue, this.sinks)));
+    this.sink.event(t, invoke(this.f, map$1(getValue$1, this.sinks)));
   }
 };
 
@@ -2634,7 +2634,7 @@ function hasValue (hold) {
   return hold.hasValue
 }
 
-function getValue (hold) {
+function getValue$1 (hold) {
   return hold.value
 }
 
@@ -4346,7 +4346,50 @@ LiftA2.prototype.sample = function sample$$1 (stream) {
   return zip(this.f, this.b1.sample(s), this.b2.sample(s))
 };
 
-// formatting
+/** @license MIT License (c) copyright 2015-2016 original author or authors */
+/** @author Brian Cavalier */
+// domEvent :: (EventTarget t, Event e) => String -> t -> boolean=false -> Stream e
+var domEvent = function (event, node, capture) {
+    if ( capture === void 0 ) { capture = false; }
+
+    return new Stream(new DomEvent(event, node, capture));
+};
+
+var click = function (node, capture) {
+  if ( capture === void 0 ) { capture = false; }
+
+  return domEvent('click', node, capture);
+};
+var DomEvent = function DomEvent (event, node, capture) {
+  this.event = event;
+  this.node = node;
+  this.capture = capture;
+};
+
+DomEvent.prototype.run = function run (sink, scheduler) {
+    var this$1 = this;
+
+  var send = function (e) { return tryEvent$2(scheduler.now(), e, sink); };
+  var dispose = function () { return this$1.node.removeEventListener(this$1.event, send, this$1.capture); };
+
+  this.node.addEventListener(this.event, send, this.capture);
+
+  return { dispose: dispose }
+};
+
+function tryEvent$2 (t, x, sink) {
+  try {
+    sink.event(t, x);
+  } catch (e) {
+    sink.error(t, e);
+  }
+}
+
+// DOM Event helpers
+var matches = function (selector) { return function (e) { return e.target.matches(selector); }; };
+var getValue = function (e) { return e.target.value; };
+
+// Formatting
 var toDate = function (ms) { return new Date(ms); };
 var pad = function (n) { return n < 10 ? ("0" + (Math.floor(n))) : ("" + (Math.floor(n))); };
 var render = function (el) { return function (date) { return el.innerText = (pad(date.getHours())) + ":" + (pad(date.getMinutes())) + ":" + (pad(date.getSeconds())) + ":" + (pad(date.getMilliseconds()/10)); }; };
@@ -4354,7 +4397,12 @@ var render = function (el) { return function (date) { return el.innerText = (pad
 // We'll put the clock here
 var el = document.getElementById('app');
 
+// Map button clicks to a periodic event stream we'll use to sample
+// the current time
+var clicks = filter(matches('button'), click(document));
+var sampler = switchLatest(map$3(periodic, cons$1(1000, map$3(Number, map$3(getValue, clicks)))));
+
 // Sample time at some interval and display it
-sample$$1(periodic(10), map$$1(toDate, time)).observe(render(el));
+sample$$1(sampler, map$$1(toDate, time)).observe(render(el));
 
 }());
