@@ -1,0 +1,7 @@
+// @flow
+import type { Stream } from '@most/core'
+
+// TODO: Use Time from @most/core
+export type Time = number
+
+declare export function mapWithTime <A, B> (f: (Time, A) => B, s: Stream<A>): Stream<B>
