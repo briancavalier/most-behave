@@ -1,0 +1,31 @@
+// @flow
+import type { Stream as Event } from '@most/core'
+
+type Time = number
+
+export type Behavior<A> = {
+  sample (e: Event<any>): Event<A>,
+  snapshot <B, C> (f: (B, A) => C, eb: Event<B>): Event<C>
+}
+
+declare export function sample <A, B> (ea: Event<A>, bb: Behavior<B>): Event<B>
+declare export function sample <A, B> (ea: Event<A>): (bb: Behavior<B>) => Event<B>
+
+declare export function snapshot <A, B, C> (f: (A, B) => C, ea: Event<A>, bb: Behavior<B>): Event<C>
+declare export function snapshot <A, B, C> (f: (A, B) => C): (ea: Event<A>, bb: Behavior<B>) => Event<C>
+declare export function snapshot <A, B, C> (f: (A, B) => C, ea: Event<A>): (bb: Behavior<B>) => Event<C>
+declare export function snapshot <A, B, C> (f: (A, B) => C): (ea: Event<A>) => (bb: Behavior<B>) => Event<C>
+
+declare export function always <A> (a: A): Behavior<A>
+declare export var time: Behavior<Time>
+
+declare export function stepper <A> (a: A, ea: Event<A>): Behavior<A>
+declare export function stepper <A> (a: A): (ea: Event<A>) => Behavior<A>
+
+declare export function map <A, B> (f: (A) => B, ba: Behavior<A>): Behavior<B>
+declare export function map <A, B> (f: (A) => B): (ba: Behavior<A>) => Behavior<B>
+
+declare export function liftA2 <A, B, C> (f: (A, B) => C, ba: Behavior<A>, bb: Behavior<B>): Behavior<C>
+declare export function liftA2 <A, B, C> (f: (A, B) => C): (ba: Behavior<A>, bb: Behavior<B>) => Behavior<C>
+declare export function liftA2 <A, B, C> (f: (A, B) => C, ba: Behavior<A>): (bb: Behavior<B>) => Behavior<C>
+declare export function liftA2 <A, B, C> (f: (A, B) => C): (ba: Behavior<A>) => (bb: Behavior<B>) => Behavior<C>
