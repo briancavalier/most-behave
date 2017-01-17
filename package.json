@@ -43,7 +43,7 @@
     "build:add-inputs": "rollup -c examples/rollup.config.js -o examples/add-inputs/app.js examples/add-inputs/index.js",
     "build:simple-clock": "rollup -c examples/rollup.config.js -o examples/simple-clock/app.js examples/simple-clock/index.js",
     "build": "npm run build:dist",
-    "build:dist": "mkdir -p dist && rollup -c && cpy src/index.js.flow dist",
+    "build:dist": "mkdir -p dist && rollup -c && cpy src/index.js.flow dist && cpy src/index.js.flow dist --rename=index.es.js.flow",
     "lint": "jsinspect src && jsinspect test && eslint src test",
     "prepublish": "npm run build",
     "test": "npm run lint && npm run unit-test",

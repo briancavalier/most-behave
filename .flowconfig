@@ -1,7 +1,8 @@
 [ignore]
 
 [include]
-src/
+src/*
+examples/**/*.js
 
 [libs]
 

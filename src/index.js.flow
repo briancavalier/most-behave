@@ -1,6 +1,7 @@
 // @flow
 import type { Stream as Event } from '@most/core'
-import type { Time } from './event'
+
+type Time = number
 
 export type Behavior<A> = {
   sample (e: Event<any>): Event<A>,

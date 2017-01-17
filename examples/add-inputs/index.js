@@ -1,5 +1,6 @@
 import { always, map, liftA2, sample } from '../../src/index'
 import { input } from '@most/dom-event'
+import { tap, runEffects, newDefaultScheduler } from '@most/core'
 
 const pipe = (f, g) => x => g(f(x))
 const byId = id => document.getElementById(id)
@@ -15,5 +16,6 @@ const z = liftA2(add, x, y)
 const inputEvents = input(byId('container'))
 
 const render = el => result => el.value = result
+const update = pipe(sample(inputEvents), tap(render(byId('z'))))
 
-sample(inputEvents, z).observe(render(byId('z')))
+runEffects(update(z), newDefaultScheduler())

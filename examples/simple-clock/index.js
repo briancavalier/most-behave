@@ -1,5 +1,5 @@
 import { time, map, sample } from '../../src/index'
-import { periodic, map as mapE, filter, switchLatest, startWith } from 'most'
+import { periodic, map as mapE, filter, switchLatest, startWith, tap, runEffects, newDefaultScheduler } from '@most/core'
 import { click } from '@most/dom-event'
 
 // DOM Event helpers
@@ -21,4 +21,4 @@ const clicks = filter(matches('button'), click(document))
 const sampler = switchLatest(mapE(periodic, startWith(1000, mapE(Number, mapE(getValue, clicks)))))
 
 // Sample time at some interval and display it
-sample(sampler, map(toDate, time)).observe(render(el))
+runEffects(tap(render(el), sample(sampler, map(toDate, time))), newDefaultScheduler())

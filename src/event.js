@@ -2,7 +2,9 @@
 // Event helpers
 
 export const mapWithTimeE = (f, stream) => new stream.constructor({
-  run: (sink, scheduler) => stream.source.run(new MapWithTimeSink(f, sink), scheduler)
+  run (sink, scheduler) {
+    return stream.source.run(new MapWithTimeSink(f, sink), scheduler)
+  }
 })
 
 class MapWithTimeSink {
