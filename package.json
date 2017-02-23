@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "author": "Brian Cavalier <brian@briancavalier.com> (github.com/briancavalier)",
   "bugs": {
-    "url": "https://github.com/mostjs/behave/issues"
+    "url": "https://github.com/briancavalier/most-behave/issues"
   },
   "devDependencies": {
     "@most/dom-event": "^1.3.2",
@@ -37,7 +37,7 @@
   "jsnext:main": "dist/index.es.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mostjs/behave.git"
+    "url": "https://github.com/briancavalier/most-behave.git"
   },
   "scripts": {
     "build:add-inputs": "rollup -c examples/rollup.config.js -o examples/add-inputs/app.js examples/add-inputs/index.js",

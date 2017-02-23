@@ -1902,13 +1902,25 @@ SplitSource.prototype.error = function error (time, err) {
 // - count :: Event a -> Behavior number
 // - when :: Behavior bool -> Event a -> Event a
 
+// sample :: Event a -> Behavior b -> Event b
+// Sample a behavior at all the event times
+// Returns a new event stream whose events occur at the same
+// times as the input event stream, and whose values are
+// sampled from the behavior
 var sample$$2 = curry2$1(function (event, behavior) { return behavior.sample(event); });
 
+// sample :: (a -> b -> c) -> Event a -> Behavior b -> Event c
+// Apply a function to each event value and the behavior's
+// value, sampled at the time of the event.  Returns a new
+// event stream whose events occur at the same times as the
+// input event stream, and whose values are the result of
+// applying the function
 var snapshot = curry3$1(function (f, event, behavior) { return behavior.snapshot(f, event); });
 
 // Base Behavior typeclass
-// Implementations MUST define at least one of sample or snapshot, and
-// MAY define both as an optimization
+// Implementations:
+// - MUST define at least one of sample or snapshot
+// - MAY define both as an optimization
 var Behavior = function Behavior () {};
 
 Behavior.prototype.sample = function sample$$2 (event) {
@@ -1924,6 +1936,12 @@ Behavior.prototype.snapshot = function snapshot (f, event) {
 
 // A behavior whose value never varies
 
+
+// computed :: (Time -> a) -> b -> Behavior b
+// A behavior computed by applying a function to the
+// event occurrence times and values that are used to
+// sample it
+var computed = function (f) { return new Computed(f); };
 
 var Computed = (function (Behavior) {
   function Computed (f) {
@@ -1949,7 +1967,7 @@ var Computed = (function (Behavior) {
 
 // A behavior whose value is the current time, as reported
 // by whatever scheduler is in use (not wall clock time)
-var time = new Computed(function (t, x) { return t; });
+var time = computed(function (t, x) { return t; });
 
 // A behavior that starts with an initial value, and then
 // changes discretely to the value of each update event.

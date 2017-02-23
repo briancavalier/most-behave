@@ -17,6 +17,9 @@ declare export function snapshot <A, B, C> (f: (A, B) => C, ea: Event<A>): (bb: 
 declare export function snapshot <A, B, C> (f: (A, B) => C): (ea: Event<A>) => (bb: Behavior<B>) => Event<C>
 
 declare export function always <A> (a: A): Behavior<A>
+
+declare export function computed <A, B> (f: (Time, A) => B): Behavior<B>
+
 declare export var time: Behavior<Time>
 
 declare export function stepper <A> (a: A, ea: Event<A>): Behavior<A>

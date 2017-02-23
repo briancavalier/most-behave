@@ -8,13 +8,25 @@ import { mapWithTimeE, zip2E, splitE } from './event'
 // - count :: Event a -> Behavior number
 // - when :: Behavior bool -> Event a -> Event a
 
+// sample :: Event a -> Behavior b -> Event b
+// Sample a behavior at all the event times
+// Returns a new event stream whose events occur at the same
+// times as the input event stream, and whose values are
+// sampled from the behavior
 export const sample = curry2((event, behavior) => behavior.sample(event))
 
+// sample :: (a -> b -> c) -> Event a -> Behavior b -> Event c
+// Apply a function to each event value and the behavior's
+// value, sampled at the time of the event.  Returns a new
+// event stream whose events occur at the same times as the
+// input event stream, and whose values are the result of
+// applying the function
 export const snapshot = curry3((f, event, behavior) => behavior.snapshot(f, event))
 
 // Base Behavior typeclass
-// Implementations MUST define at least one of sample or snapshot, and
-// MAY define both as an optimization
+// Implementations:
+// - MUST define at least one of sample or snapshot
+// - MAY define both as an optimization
 class Behavior {
   sample (event) {
     return this.snapshot(snd, event)
@@ -44,6 +56,12 @@ class Constant extends Behavior {
   }
 }
 
+// computed :: (Time -> a) -> b -> Behavior b
+// A behavior computed by applying a function to the
+// event occurrence times and values that are used to
+// sample it
+export const computed = f => new Computed(f)
+
 class Computed extends Behavior {
   constructor (f) {
     super()
@@ -62,7 +80,7 @@ class Computed extends Behavior {
 
 // A behavior whose value is the current time, as reported
 // by whatever scheduler is in use (not wall clock time)
-export const time = new Computed((t, x) => t)
+export const time = computed((t, x) => t)
 
 // A behavior that starts with an initial value, and then
 // changes discretely to the value of each update event.
