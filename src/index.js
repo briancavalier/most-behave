@@ -78,7 +78,7 @@ class Stepper extends Behavior {
   }
 
   sample (event) {
-    return sampleE(snd, event, this.updates)
+    return this.snapshot(snd, event)
   }
 
   snapshot (f, event) {
