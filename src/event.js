@@ -40,13 +40,13 @@ export const zip2E = (f, s1, s2) =>
   new s1.constructor(new Zip2Source(f, s1.source, s2.source))
 
 class Zip2Source {
-  constructor(f, s1, s2) {
+  constructor (f, s1, s2) {
     this.f = f
     this.s1 = s1
     this.s2 = s2
   }
 
-  run(sink, scheduler) {
+  run (sink, scheduler) {
     const state = { active: 2 }
     const q1 = new Queue()
     const q2 = new Queue()
@@ -57,7 +57,7 @@ class Zip2Source {
 }
 
 class Zip2LSink {
-  constructor(f, values, other, state, sink) {
+  constructor (f, values, other, state, sink) {
     this.f = f
     this.values = values
     this.other = other
@@ -65,7 +65,7 @@ class Zip2LSink {
     this.sink = sink
   }
 
-  event(t, x) {
+  event (t, x) {
     if (this.other.isEmpty()) {
       this.values.push(x)
     } else {
@@ -73,7 +73,7 @@ class Zip2LSink {
     }
   }
 
-  end(t, x) {
+  end (t, x) {
     if (--this.state.active === 0) {
       this.sink.end(t, x)
     }
@@ -83,18 +83,18 @@ class Zip2LSink {
     this.sink.error(t, e)
   }
 
-  _event(t, a) {
+  _event (t, a) {
     const f = this.f
     this.sink.event(t, f(a, this.other.shift()))
   }
 }
 
 class Zip2RSink extends Zip2LSink {
-  constructor(f, values, other, state, sink) {
-    super(f, values, other, state, sink)
-  }
+  // constructor (f, values, other, state, sink) {
+  //   super(f, values, other, state, sink)
+  // }
 
-  _event(t, b) {
+  _event (t, b) {
     const f = this.f
     this.sink.event(t, f(this.other.shift(), b))
   }
@@ -110,7 +110,6 @@ class DisposeBoth {
     return Promise.all([this.d1.dispose(), this.d2.dispose()])
   }
 }
-
 
 export const splitE = stream => {
   const sp = new stream.constructor(new SplitSource(stream.source))
@@ -142,9 +141,9 @@ class SplitSource {
       return {
         source: this,
         dispose () {
-          this.source.sink0 = source.sink1
+          this.source.sink0 = this.source.sink1
           this.source.sink1 = nullSink
-          if(this.source.sink0 === nullSink) {
+          if (this.source.sink0 === nullSink) {
             return this.source.disposable.dispose()
           }
         }
@@ -155,7 +154,7 @@ class SplitSource {
         source: this,
         dispose () {
           this.source.sink1 = nullSink
-          if(this.source.sink0 === nullSink) {
+          if (this.source.sink0 === nullSink) {
             return this.source.disposable.dispose()
           }
         }

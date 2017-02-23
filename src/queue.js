@@ -1,13 +1,13 @@
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
 
 export class Queue {
-  constructor(capPow2) {
+  constructor (capPow2) {
     this._capacity = capPow2 || 32
     this._length = 0
     this._head = 0
   }
 
-  push(x) {
+  push (x) {
     const len = this._length
     this._checkCapacity(len + 1)
 
@@ -34,13 +34,13 @@ export class Queue {
     return this._length
   }
 
-  _checkCapacity(size) {
+  _checkCapacity (size) {
     if (this._capacity < size) {
       this._ensureCapacity(this._capacity << 1)
     }
   }
 
-  _ensureCapacity(capacity) {
+  _ensureCapacity (capacity) {
     const oldCapacity = this._capacity
     this._capacity = capacity
 
