@@ -2036,107 +2036,63 @@ function curry3$1 (f) {
 
 /** @license MIT License (c) copyright 2016 original author or authors */
 
-var MulticastDisposable = function MulticastDisposable (source, sink) {
-  this.source = source;
-  this.sink = sink;
-  this.disposed = false;
+/** @license MIT License (c) copyright 2010-2016 original author or authors */
+
+var Queue$1 = function Queue$1(capPow2) {
+  this._capacity = capPow2 || 32;
+  this._length = 0;
+  this._head = 0;
 };
 
-MulticastDisposable.prototype.dispose = function dispose$1$1 () {
-  if (this.disposed) {
-    return
-  }
-  this.disposed = true;
-  var remaining = this.source.remove(this.sink);
-  return remaining === 0 && this.source._dispose()
+Queue$1.prototype.push = function push (x) {
+  var len = this._length;
+  this._checkCapacity(len + 1);
+
+  var i = (this._head + len) & (this._capacity - 1);
+  this[i] = x;
+  this._length = len + 1;
 };
 
-function tryEvent$1 (t, x, sink) {
-  try {
-    sink.event(t, x);
-  } catch (e) {
-    sink.error(t, e);
-  }
-}
+Queue$1.prototype.shift = function shift () {
+  var head = this._head;
+  var x = this[head];
 
-function tryEnd$1 (t, x, sink) {
-  try {
-    sink.end(t, x);
-  } catch (e) {
-    sink.error(t, e);
-  }
-}
-
-var dispose$1$1 = function (disposable) { return disposable.dispose(); };
-
-var emptyDisposable = {
-  dispose: function dispose$1 () {}
+  this[head] = void 0;
+  this._head = (head + 1) & (this._capacity - 1);
+  this._length--;
+  return x
 };
 
-var MulticastSource = function MulticastSource (source) {
-  this.source = source;
-  this.sinks = [];
-  this._disposable = emptyDisposable;
+Queue$1.prototype.isEmpty = function isEmpty () {
+  return this._length === 0
 };
 
-MulticastSource.prototype.run = function run (sink, scheduler) {
-  var n = this.add(sink);
-  if (n === 1) {
-    this._disposable = this.source.run(this, scheduler);
-  }
-  return new MulticastDisposable(this, sink)
+Queue$1.prototype.length = function length () {
+  return this._length
 };
 
-MulticastSource.prototype._dispose = function _dispose () {
-  var disposable = this._disposable;
-  this._disposable = emptyDisposable;
-  return Promise.resolve(disposable).then(dispose$1$1)
-};
-
-MulticastSource.prototype.add = function add (sink) {
-  this.sinks = append(sink, this.sinks);
-  return this.sinks.length
-};
-
-MulticastSource.prototype.remove = function remove$1 (sink) {
-  var i = findIndex$1(sink, this.sinks);
-  // istanbul ignore next
-  if (i >= 0) {
-    this.sinks = remove(i, this.sinks);
-  }
-
-  return this.sinks.length
-};
-
-MulticastSource.prototype.event = function event (time, value) {
-  var s = this.sinks;
-  if (s.length === 1) {
-    return s[0].event(time, value)
-  }
-  for (var i = 0; i < s.length; ++i) {
-    tryEvent$1(time, value, s[i]);
+Queue$1.prototype._checkCapacity = function _checkCapacity (size) {
+  if (this._capacity < size) {
+    this._ensureCapacity(this._capacity << 1);
   }
 };
 
-MulticastSource.prototype.end = function end (time, value) {
-  var s = this.sinks;
-  for (var i = 0; i < s.length; ++i) {
-    tryEnd$1(time, value, s[i]);
+Queue$1.prototype._ensureCapacity = function _ensureCapacity (capacity) {
+  var oldCapacity = this._capacity;
+  this._capacity = capacity;
+
+  var last = this._head + this._length;
+
+  if (last > oldCapacity) {
+    copy$2$1(this, 0, this, oldCapacity, last & (oldCapacity - 1));
   }
 };
 
-MulticastSource.prototype.error = function error (time, err) {
-  var s = this.sinks;
-  for (var i = 0; i < s.length; ++i) {
-    s[i].error(time, err);
+function copy$2$1 (src, srcIndex, dst, dstIndex, len) {
+  for (var j = 0; j < len; ++j) {
+    dst[j + dstIndex] = src[j + srcIndex];
+    src[j + srcIndex] = void 0;
   }
-};
-
-function multicast (stream) {
-  var source = stream.source;
-  return source instanceof MulticastSource
-    ? stream
-    : new stream.constructor(new MulticastSource(source))
 }
 
 // ------------------------------------------------------
@@ -2166,6 +2122,148 @@ MapWithTimeSink.prototype.end = function end (t, x) {
   this.sink.end(t, x);
 };
 
+
+
+var Zip2Source = function Zip2Source(f, s1, s2) {
+  this.f = f;
+  this.s1 = s1;
+  this.s2 = s2;
+};
+
+Zip2Source.prototype.run = function run (sink, scheduler) {
+  var state = { active: 2 };
+  var q1 = new Queue$1();
+  var q2 = new Queue$1();
+  var d1 = this.s1.run(new Zip2LSink(this.f, q1, q2, state, sink), scheduler);
+  var d2 = this.s2.run(new Zip2RSink(this.f, q2, q1, state, sink), scheduler);
+  return {
+    dispose: function dispose () {
+      return Promise.all([d1.dispose(), d2.dispose()])
+    }
+  }
+};
+
+var Zip2LSink = function Zip2LSink(f, values, other, state, sink) {
+  this.f = f;
+  this.values = values;
+  this.other = other;
+  this.state = state;
+  this.sink = sink;
+};
+
+Zip2LSink.prototype.event = function event (t, x) {
+  if (this.other.isEmpty()) {
+    this.values.push(x);
+  } else {
+    this._event(t, x);
+  }
+};
+
+Zip2LSink.prototype.end = function end (t, x) {
+  if (--this.state.active === 0) {
+    this.sink.end(t, x);
+  }
+};
+
+Zip2LSink.prototype.error = function error (t, e) {
+  this.sink.error(t, e);
+};
+
+Zip2LSink.prototype._event = function _event (t, a) {
+  var f = this.f;
+  this.sink.event(t, f(a, this.other.shift()));
+};
+
+var Zip2RSink = (function (Zip2LSink) {
+  function Zip2RSink(f, values, other, state, sink) {
+    Zip2LSink.call(this, f, values, other, state, sink);
+  }
+
+  if ( Zip2LSink ) Zip2RSink.__proto__ = Zip2LSink;
+  Zip2RSink.prototype = Object.create( Zip2LSink && Zip2LSink.prototype );
+  Zip2RSink.prototype.constructor = Zip2RSink;
+
+  Zip2RSink.prototype._event = function _event (t, b) {
+    var f = this.f;
+    this.sink.event(t, f(this.other.shift(), b));
+  };
+
+  return Zip2RSink;
+}(Zip2LSink));
+
+var splitE = function (stream) {
+  var sp = stream.constructor(new SplitSource(stream.source));
+  return [sp, sp]
+};
+
+var nullSink = {
+  event: function event (t, x) {},
+  end: function end (t, x) {},
+  error: function error (t, x) {}
+};
+
+var nullDisposable = {
+  dispose: function dispose () {}
+};
+
+var SplitSource = function SplitSource (source) {
+  this.source = source;
+  this.sink0 = nullSink;
+  this.sink1 = nullSink;
+  this.disposable = nullDisposable;
+};
+
+SplitSource.prototype.run = function run (sink, scheduler) {
+  if (this.sink0 === nullSink) {
+    this.sink0 = sink;
+    this.disposable = this.source.run(this, scheduler);
+    return {
+      source: this,
+      dispose: function dispose () {
+        this.source.sink0 = source.sink1;
+        this.source.sink1 = nullSink;
+        if(this.source.sink0 === nullSink) {
+          return this.source.disposable.dispose()
+        }
+      }
+    }
+  } else if (this.sink1 === nullSink) {
+    this.sink1 = sink;
+    return {
+      source: this,
+      dispose: function dispose () {
+        this.source.sink1 = nullSink;
+        if(this.source.sink0 === nullSink) {
+          return this.source.disposable.dispose()
+        }
+      }
+    }
+  } else {
+    throw new TypeError('> 2 observers')
+  }
+};
+
+SplitSource.prototype._dispose = function _dispose () {
+  var disposable = this._disposable;
+  this._disposable = nullDisposable;
+  return disposable.dispose()
+};
+
+SplitSource.prototype.event = function event (time, value) {
+  this.sink0.event(time, value);
+  this.sink1.event(time, value);
+};
+
+SplitSource.prototype.end = function end (time, value) {
+  this.sink0.end(time, value);
+  this.sink1.end(time, value);
+};
+
+SplitSource.prototype.error = function error (time, err) {
+  this.sink0.error(time, err);
+  this.sink1.error(time, err);
+};
+
 // Possibly useful:
 // - accum :: a -> Event (a -> a) -> Behavior a
 //    accum :: (a -> b -> c) -> a -> Event b -> Behavior c
@@ -2186,8 +2284,10 @@ Behavior.prototype.sample = function sample$$2 (event) {
 };
 
 Behavior.prototype.snapshot = function snapshot (f, event) {
-  var me = multicast(event);
-  return sample$$1(f, this.sample(me), me)
+  var ref = splitE(event);
+    var e1 = ref[0];
+    var e2 = ref[1];
+  return sample$$1(f, this.sample(e1), e2)
 };
 
 
@@ -3148,7 +3248,7 @@ function thru (f, stream) {
 /** @author Brian Cavalier */
 /** @author John Hann */
 
-function tryEvent$3 (t, x, sink) {
+function tryEvent$2 (t, x, sink) {
   try {
     sink.event(t, x);
   } catch (e) {
@@ -3156,7 +3256,7 @@ function tryEvent$3 (t, x, sink) {
   }
 }
 
-function tryEnd$2 (t, x, sink) {
+function tryEnd$1 (t, x, sink) {
   try {
     sink.end(t, x);
   } catch (e) {
@@ -3176,7 +3276,7 @@ function EventTargetSource (event, source, capture) {
 
 EventTargetSource.prototype.run = function (sink, scheduler) {
   function addEvent (e) {
-    tryEvent$3(scheduler.now(), e, sink);
+    tryEvent$2(scheduler.now(), e, sink);
   }
 
   this.source.addEventListener(this.event, addEvent, this.capture);
@@ -3309,9 +3409,9 @@ EventEmitterSource.prototype.run = function (sink, scheduler) {
       for (var i = 0; i < l; ++i) {
         arr[i] = arguments$1[i];
       }
-      tryEvent$3(scheduler.now(), arr, dsink);
+      tryEvent$2(scheduler.now(), arr, dsink);
     } else {
-      tryEvent$3(scheduler.now(), a, dsink);
+      tryEvent$2(scheduler.now(), a, dsink);
     }
   }
 
@@ -4668,13 +4768,13 @@ function getValue$1 (hold) {
 
 // Based on https://github.com/petkaantonov/deque
 
-function Queue$1 (capPow2) {
+function Queue$2 (capPow2) {
   this._capacity = capPow2 || 32;
   this._length = 0;
   this._head = 0;
 }
 
-Queue$1.prototype.push = function (x) {
+Queue$2.prototype.push = function (x) {
   var len = this._length;
   this._checkCapacity(len + 1);
 
@@ -4683,7 +4783,7 @@ Queue$1.prototype.push = function (x) {
   this._length = len + 1;
 };
 
-Queue$1.prototype.shift = function () {
+Queue$2.prototype.shift = function () {
   var head = this._head;
   var x = this[head];
 
@@ -4693,32 +4793,32 @@ Queue$1.prototype.shift = function () {
   return x
 };
 
-Queue$1.prototype.isEmpty = function () {
+Queue$2.prototype.isEmpty = function () {
   return this._length === 0
 };
 
-Queue$1.prototype.length = function () {
+Queue$2.prototype.length = function () {
   return this._length
 };
 
-Queue$1.prototype._checkCapacity = function (size) {
+Queue$2.prototype._checkCapacity = function (size) {
   if (this._capacity < size) {
     this._ensureCapacity(this._capacity << 1);
   }
 };
 
-Queue$1.prototype._ensureCapacity = function (capacity) {
+Queue$2.prototype._ensureCapacity = function (capacity) {
   var oldCapacity = this._capacity;
   this._capacity = capacity;
 
   var last = this._head + this._length;
 
   if (last > oldCapacity) {
-    copy$3(this, 0, this, oldCapacity, last & (oldCapacity - 1));
+    copy$4(this, 0, this, oldCapacity, last & (oldCapacity - 1));
   }
 };
 
-function copy$3 (src, srcIndex, dst, dstIndex, len) {
+function copy$4 (src, srcIndex, dst, dstIndex, len) {
   for (var j = 0; j < len; ++j) {
     dst[j + dstIndex] = src[j + srcIndex];
     src[j + srcIndex] = void 0;
@@ -4775,7 +4875,7 @@ Zip$1.prototype.run = function (sink, scheduler) {
   var zipSink = new ZipSink$1(this.f, buffers, sinks, sink);
 
   for (var indexSink, i = 0; i < l; ++i) {
-    buffers[i] = new Queue$1();
+    buffers[i] = new Queue$2();
     indexSink = sinks[i] = new IndexSink$1(i, zipSink);
     disposables[i] = this$1.sources[i].run(indexSink, scheduler);
   }
@@ -5641,11 +5741,11 @@ function RecoverWithSink$1 (f, source, sink, scheduler) {
 }
 
 RecoverWithSink$1.prototype.event = function (t, x) {
-  tryEvent$3(t, x, this.sink);
+  tryEvent$2(t, x, this.sink);
 };
 
 RecoverWithSink$1.prototype.end = function (t, x) {
-  tryEnd$2(t, x, this.sink);
+  tryEnd$1(t, x, this.sink);
 };
 
 RecoverWithSink$1.prototype.error = function (t, e) {
@@ -5671,6 +5771,109 @@ RecoverWithSink$1.prototype._continue = function (f, x, sink) {
 RecoverWithSink$1.prototype.dispose = function () {
   return this.disposable.dispose()
 };
+
+var MulticastDisposable = function MulticastDisposable (source, sink) {
+  this.source = source;
+  this.sink = sink;
+  this.disposed = false;
+};
+
+MulticastDisposable.prototype.dispose = function dispose$1$1 () {
+  if (this.disposed) {
+    return
+  }
+  this.disposed = true;
+  var remaining = this.source.remove(this.sink);
+  return remaining === 0 && this.source._dispose()
+};
+
+function tryEvent$3 (t, x, sink) {
+  try {
+    sink.event(t, x);
+  } catch (e) {
+    sink.error(t, e);
+  }
+}
+
+function tryEnd$2 (t, x, sink) {
+  try {
+    sink.end(t, x);
+  } catch (e) {
+    sink.error(t, e);
+  }
+}
+
+var dispose$1$1 = function (disposable) { return disposable.dispose(); };
+
+var emptyDisposable = {
+  dispose: function dispose$1 () {}
+};
+
+var MulticastSource = function MulticastSource (source) {
+  this.source = source;
+  this.sinks = [];
+  this._disposable = emptyDisposable;
+};
+
+MulticastSource.prototype.run = function run (sink, scheduler) {
+  var n = this.add(sink);
+  if (n === 1) {
+    this._disposable = this.source.run(this, scheduler);
+  }
+  return new MulticastDisposable(this, sink)
+};
+
+MulticastSource.prototype._dispose = function _dispose () {
+  var disposable = this._disposable;
+  this._disposable = emptyDisposable;
+  return Promise.resolve(disposable).then(dispose$1$1)
+};
+
+MulticastSource.prototype.add = function add (sink) {
+  this.sinks = append(sink, this.sinks);
+  return this.sinks.length
+};
+
+MulticastSource.prototype.remove = function remove$1 (sink) {
+  var i = findIndex$1(sink, this.sinks);
+  // istanbul ignore next
+  if (i >= 0) {
+    this.sinks = remove(i, this.sinks);
+  }
+
+  return this.sinks.length
+};
+
+MulticastSource.prototype.event = function event (time, value) {
+  var s = this.sinks;
+  if (s.length === 1) {
+    return s[0].event(time, value)
+  }
+  for (var i = 0; i < s.length; ++i) {
+    tryEvent$3(time, value, s[i]);
+  }
+};
+
+MulticastSource.prototype.end = function end (time, value) {
+  var s = this.sinks;
+  for (var i = 0; i < s.length; ++i) {
+    tryEnd$2(time, value, s[i]);
+  }
+};
+
+MulticastSource.prototype.error = function error (time, err) {
+  var s = this.sinks;
+  for (var i = 0; i < s.length; ++i) {
+    s[i].error(time, err);
+  }
+};
+
+function multicast (stream) {
+  var source = stream.source;
+  return source instanceof MulticastSource
+    ? stream
+    : new stream.constructor(new MulticastSource(source))
+}
 
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
 /** @author Brian Cavalier */
@@ -6239,7 +6442,7 @@ var DomEvent = function DomEvent (event, node, capture) {
 DomEvent.prototype.run = function run (sink, scheduler) {
     var this$1 = this;
 
-  var send = function (e) { return tryEvent$2(scheduler.now(), e, sink); };
+  var send = function (e) { return tryEvent$1(scheduler.now(), e, sink); };
   var dispose = function () { return this$1.node.removeEventListener(this$1.event, send, this$1.capture); };
 
   this.node.addEventListener(this.event, send, this.capture);
@@ -6247,7 +6450,7 @@ DomEvent.prototype.run = function run (sink, scheduler) {
   return { dispose: dispose }
 };
 
-function tryEvent$2 (t, x, sink) {
+function tryEvent$1 (t, x, sink) {
   try {
     sink.event(t, x);
   } catch (e) {
