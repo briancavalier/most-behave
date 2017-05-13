@@ -21,7 +21,7 @@ class SplitDisposable {
   }
 
   dispose () {
-    if(this.sink === this.source.sink0) {
+    if (this.sink === this.source.sink0) {
       this.source.sink0 = this.source.sink1
       this.source.sink1 = nullSink
     } else {

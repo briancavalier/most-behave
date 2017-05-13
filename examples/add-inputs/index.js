@@ -1,9 +1,15 @@
+// @flow
 import { always, map, liftA2, sample } from '../../src/index'
 import { input } from '@most/dom-event'
-import { tap, runEffects, newDefaultScheduler } from '@most/core'
+import { newDefaultScheduler } from '@most/scheduler'
+import { tap, runEffects } from '@most/core'
 
 const pipe = (f, g) => x => g(f(x))
-const byId = id => document.getElementById(id)
+const byId = id => {
+  const el = document.getElementById(id)
+  if(!el) { throw new Error(`#${id} not found`) }
+  return el
+}
 
 const add = (x, y) => x + y
 

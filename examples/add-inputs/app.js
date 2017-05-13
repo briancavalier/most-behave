@@ -3,124 +3,330 @@
 
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
 
-// Non-mutating array operations
+  // Non-mutating array operations
 
-// cons :: a -> [a] -> [a]
-// a with x prepended
-
-
-// append :: a -> [a] -> [a]
-// a with x appended
-
-
-// drop :: Int -> [a] -> [a]
-// drop first n elements
-// map :: (a -> b) -> [a] -> [b]
-// transform each element with f
-function map$1 (f, a) {
-  var l = a.length;
-  var b = new Array(l);
-  for (var i = 0; i < l; ++i) {
-    b[i] = f(a[i]);
-  }
-  return b
-}
-
-// replace :: a -> Int -> [a]
-// replace element at index
-
-
-// remove :: Int -> [a] -> [a]
-// remove element at index
-
-
-// removeAll :: (a -> boolean) -> [a] -> [a]
-// remove all elements matching a predicate
-function removeAll (f, a) {
-  var l = a.length;
-  var b = new Array(l);
-  var j = 0;
-  for (var x = (void 0), i = 0; i < l; ++i) {
-    x = a[i];
-    if (!f(x)) {
-      b[j] = x;
-      ++j;
+  // cons :: a -> [a] -> [a]
+  // a with x prepended
+  // drop :: Int -> [a] -> [a]
+  // drop first n elements
+  // map :: (a -> b) -> [a] -> [b]
+  // transform each element with f
+  function map$1 (f, a) {
+    var l = a.length;
+    var b = new Array(l);
+    for (var i = 0; i < l; ++i) {
+      b[i] = f(a[i]);
     }
+    return b
   }
 
-  b.length = j;
-  return b
-}
+  // compose :: (b -> c) -> (a -> b) -> (a -> c)
+  var compose = function (f, g) { return function (x) { return f(g(x)); }; };
 
-// findIndex :: a -> [a] -> Int
-// find index of x in a, from the left
-function findIndex (x, a) {
-  for (var i = 0, l = a.length; i < l; ++i) {
-    if (x === a[i]) {
-      return i
+  // curry2 :: ((a, b) -> c) -> (a -> b -> c)
+  function curry2 (f) {
+    function curried (a, b) {
+      switch (arguments.length) {
+        case 0: return curried
+        case 1: return function (b) { return f(a, b); }
+        default: return f(a, b)
+      }
     }
+    return curried
   }
-  return -1
-}
 
-// isArrayLike :: * -> boolean
-// Return true iff x is array-like
+  // curry3 :: ((a, b, c) -> d) -> (a -> b -> c -> d)
+  function curry3 (f) {
+    function curried (a, b, c) { // eslint-disable-line complexity
+      switch (arguments.length) {
+        case 0: return curried
+        case 1: return curry2(function (b, c) { return f(a, b, c); })
+        case 2: return function (c) { return f(a, b, c); }
+        default:return f(a, b, c)
+      }
+    }
+    return curried
+  }
+
+/** @license MIT License (c) copyright 2010-2017 original author or authors */
+
+var disposeNone = function () { return NONE; };
+var NONE = new ((function () {
+  function DisposeNone () {}
+
+  DisposeNone.prototype.dispose = function dispose () {};
+
+  return DisposeNone;
+}()))();
+
+/** @license MIT License (c) copyright 2010-2017 original author or authors */
+
+// Wrap an existing disposable (which may not already have been once()d)
+// so that it will only dispose its underlying resource at most once.
+var disposeOnce = function (disposable) { return new DisposeOnce(disposable); };
+
+var DisposeOnce = function DisposeOnce (disposable) {
+  this.disposed = false;
+  this.disposable = disposable;
+};
+
+DisposeOnce.prototype.dispose = function dispose () {
+  if (!this.disposed) {
+    this.disposed = true;
+    this.disposable.dispose();
+    this.disposable = undefined;
+  }
+};
+
+// Disposable represents a resource that must be
+// disposed/released. It aggregates a function to dispose
+// the resource and a handle to a key/id/handle/reference
+// that identifies the resource
+var Disposable = function Disposable (dispose, resource) {
+  this._dispose = dispose;
+  this._resource = resource;
+};
+
+Disposable.prototype.dispose = function dispose () {
+  this._dispose(this._resource);
+};
 
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
 
-// id :: a -> a
-var id = function (x) { return x; };
+  // Non-mutating array operations
 
-// compose :: (b -> c) -> (a -> b) -> (a -> c)
-var compose = function (f, g) { return function (x) { return f(g(x)); }; };
-
-// curry2 :: ((a, b) -> c) -> (a -> b -> c)
-function curry2 (f) {
-  function curried (a, b) {
-    switch (arguments.length) {
-      case 0: return curried
-      case 1: return function (b) { return f(a, b); }
-      default: return f(a, b)
+  // cons :: a -> [a] -> [a]
+  // a with x prepended
+  // reduce :: (a -> b -> a) -> a -> [b] -> a
+  // accumulate via left-fold
+  function reduce$1 (f, z, a) {
+    var r = z;
+    for (var i = 0, l = a.length; i < l; ++i) {
+      r = f(r, a[i], i);
     }
+    return r
   }
-  return curried
-}
 
-// curry3 :: ((a, b, c) -> d) -> (a -> b -> c -> d)
-function curry3 (f) {
-  function curried (a, b, c) { // eslint-disable-line complexity
-    switch (arguments.length) {
-      case 0: return curried
-      case 1: return curry2(function (b, c) { return f(a, b, c); })
-      case 2: return function (c) { return f(a, b, c); }
-      default:return f(a, b, c)
+/** @license MIT License (c) copyright 2010-2017 original author or authors */
+// Aggregate a list of disposables into a DisposeAll
+var disposeAll = function (ds) { return new DisposeAll(ds); };
+
+// Convenience to aggregate 2 disposables
+var disposeBoth = function (d1, d2) { return disposeAll([d1, d2]); };
+
+var DisposeAll = function DisposeAll (disposables) {
+  this.disposables = disposables;
+};
+
+DisposeAll.prototype.dispose = function dispose () {
+  throwIfErrors(disposeCollectErrors(this.disposables));
+};
+
+// Dispose all, safely collecting errors into an array
+var disposeCollectErrors = function (disposables) { return reduce$1(appendIfError, [], disposables); };
+
+// Call dispose and if throws, append thrown error to errors
+var appendIfError = function (errors, d) {
+  try {
+    d.dispose();
+  } catch (e) {
+    errors.push(e);
+  }
+  return errors
+};
+
+// Throw DisposeAllError if errors is non-empty
+var throwIfErrors = function (errors) {
+  if (errors.length > 0) {
+    throw new DisposeAllError(((errors.length) + " errors"), errors)
+  }
+};
+
+// Aggregate Error type for DisposeAll
+var DisposeAllError = (function (Error) {
+  function DisposeAllError (message, errors) {
+    Error.call(this, message);
+    this.message = message;
+    this.name = this.constructor.name;
+    this.errors = errors;
+
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, this.constructor);
     }
+
+    this.stack = "" + (this.stack) + (formatErrorStacks(this.errors));
   }
-  return curried
+
+  if ( Error ) { DisposeAllError.__proto__ = Error; }
+  DisposeAllError.prototype = Object.create( Error && Error.prototype );
+  DisposeAllError.prototype.constructor = DisposeAllError;
+
+  DisposeAllError.prototype.toString = function toString () {
+    return this.stack
+  };
+
+  return DisposeAllError;
+}(Error));
+
+var formatErrorStacks = function (errors) { return reduce$1(formatErrorStack, '', errors); };
+
+var formatErrorStack = function (s, e, i) { return s + "\n[" + ((i + 1)) + "] " + (e.stack); };
+
+/** @license MIT License (c) copyright 2010-2017 original author or authors */
+
+// Try to dispose the disposable.  If it throws, send
+// the error to sink.error with the provided Time value
+function tryDispose (t, disposable, sink) {
+  try {
+    disposable.dispose();
+  } catch (e) {
+    sink.error(t, e);
+  }
 }
-
-// curry4 :: ((a, b, c, d) -> e) -> (a -> b -> c -> d -> e)
-
-/** @license MIT License (c) copyright 2016 original author or authors */
 
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
 /** @author Brian Cavalier */
 /** @author John Hann */
 
-function Stream (source) {
-  this.source = source;
+function fatalError (e) {
+  setTimeout(rethrow, 0, e);
+}
+
+function rethrow (e) {
+  throw e
 }
 
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
+/** @author Brian Cavalier */
+/** @author John Hann */
 
-var Disposable = function Disposable (dispose, data) {
-  this._dispose = dispose;
-  this._data = data;
+var propagateTask$1 = function (run, value, sink) { return new PropagateTask(run, value, sink); };
+
+var propagateEventTask$1 = function (value, sink) { return propagateTask$1(runEvent, value, sink); };
+
+var propagateEndTask = function (sink) { return propagateTask$1(runEnd, undefined, sink); };
+
+var propagateErrorTask$1 = function (value, sink) { return propagateTask$1(runError, value, sink); };
+
+var PropagateTask = function PropagateTask (run, value, sink) {
+  this._run = run;
+  this.value = value;
+  this.sink = sink;
+  this.active = true;
 };
 
-Disposable.prototype.dispose = function dispose () {
-  return this._dispose(this._data)
+PropagateTask.prototype.dispose = function dispose () {
+  this.active = false;
 };
+
+PropagateTask.prototype.run = function run (t) {
+  if (!this.active) {
+    return
+  }
+  var run = this._run;
+  run(t, this.value, this.sink, this);
+};
+
+PropagateTask.prototype.error = function error (t, e) {
+  // TODO: Remove this check and just do this.sink.error(t, e)?
+  if (!this.active) {
+    return fatalError(e)
+  }
+  this.sink.error(t, e);
+};
+
+var runEvent = function (t, x, sink) { return sink.event(t, x); };
+
+var runEnd = function (t, _, sink) { return sink.end(t); };
+
+var runError = function (t, e, sink) { return sink.error(t, e); };
+
+var Just = function Just (x) {
+  this.value = x;
+};
+
+Just.prototype.run = function run (sink, scheduler) {
+  return scheduler.asap(propagateTask$1(runJust, this.value, sink))
+};
+
+function runJust (t, x, sink) {
+  sink.event(t, x);
+  sink.end(t, undefined);
+}
+
+var Empty = function Empty () {};
+
+Empty.prototype.run = function run (sink, scheduler) {
+  return scheduler.asap(propagateEndTask(sink))
+};
+
+var Never = function Never () {};
+
+Never.prototype.run = function run () {
+  return disposeNone()
+};
+
+var Periodic = function Periodic (period) {
+  this.period = period;
+};
+
+Periodic.prototype.run = function run (sink, scheduler) {
+  return scheduler.periodic(this.period, propagateEventTask$1(undefined, sink))
+};
+
+/** @license MIT License (c) copyright 2010-2017 original author or authors */
+/** @author Brian Cavalier */
+
+var Pipe = function Pipe (sink) {
+  this.sink = sink;
+};
+
+Pipe.prototype.event = function event (t, x) {
+  return this.sink.event(t, x)
+};
+
+Pipe.prototype.end = function end (t) {
+  return this.sink.end(t)
+};
+
+Pipe.prototype.error = function error (t, e) {
+  return this.sink.error(t, e)
+};
+
+var ZipArrayValues = function ZipArrayValues (f, values, source) {
+  this.f = f;
+  this.values = values;
+  this.source = source;
+};
+
+ZipArrayValues.prototype.run = function run (sink, scheduler) {
+  return this.source.run(new ZipArrayValuesSink(this.f, this.values, sink), scheduler)
+};
+
+var ZipArrayValuesSink = (function (Pipe$$1) {
+  function ZipArrayValuesSink (f, values, sink) {
+    Pipe$$1.call(this, sink);
+    this.f = f;
+    this.values = values;
+    this.index = 0;
+  }
+
+  if ( Pipe$$1 ) { ZipArrayValuesSink.__proto__ = Pipe$$1; }
+  ZipArrayValuesSink.prototype = Object.create( Pipe$$1 && Pipe$$1.prototype );
+  ZipArrayValuesSink.prototype.constructor = ZipArrayValuesSink;
+
+  ZipArrayValuesSink.prototype.event = function event (t, b) {
+    var f = this.f;
+    this.sink.event(t, f(this.values[this.index], b));
+
+    this.index += 1;
+    if (this.index >= this.values.length) {
+      this.sink.end(t);
+    }
+  };
+
+  return ZipArrayValuesSink;
+}(Pipe));
 
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
 
@@ -162,288 +368,15 @@ SettableDisposable.prototype.dispose = function dispose () {
   return this.result
 };
 
-/** @license MIT License (c) copyright 2010-2016 original author or authors */
+/** @license MIT License (c) copyright 2010-2017 original author or authors */
 
-function disposeSafely (disposable) {
-  try {
-    return disposable.dispose()
-  } catch (e) {
-    return Promise.reject(e)
-  }
-}
+var runEffects$1 = function (stream, scheduler) { return new Promise(function (resolve, reject) { return runStream(stream, scheduler, resolve, reject); }); };
 
-/** @license MIT License (c) copyright 2010-2016 original author or authors */
-var MemoizedDisposable = function MemoizedDisposable (disposable) {
-  this.disposed = false;
-  this.value = undefined;
-  this.disposable = disposable;
-};
-
-MemoizedDisposable.prototype.dispose = function dispose () {
-  if (!this.disposed) {
-    this.disposed = true;
-    this.value = disposeSafely(this.disposable);
-    this.disposable = undefined;
-  }
-
-  return this.value
-};
-
-/** @license MIT License (c) copyright 2010-2016 original author or authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-
-function isPromise (p) {
-  return p !== null && typeof p === 'object' && typeof p.then === 'function'
-}
-
-/** @license MIT License (c) copyright 2010-2016 original author or authors */
-
-/**
- * Call disposable.dispose.  If it returns a promise, catch promise
- * error and forward it through the provided sink.
- * @param {number} t time
- * @param {{dispose: function}} disposable
- * @param {{error: function}} sink
- * @return {*} result of disposable.dispose
- */
-function tryDispose (t, disposable, sink) {
-  var result = disposeSafely(disposable);
-  return isPromise(result)
-    ? result.catch(function (e) { return sink.error(t, e); })
-    : result
-}
-
-/**
- * Create a new Disposable which will dispose its underlying resource
- * at most once.
- * @param {function} dispose function
- * @param {*?} data any data to be passed to disposer function
- * @return {Disposable}
- */
-var create = function (dispose, data) { return once(new Disposable(dispose, data)); };
-
-/**
- * Create a noop disposable. Can be used to satisfy a Disposable
- * requirement when no actual resource needs to be disposed.
- * @return {Disposable|exports|module.exports}
- */
-var empty$1 = function () { return new Disposable(id, undefined); };
-
-/**
- * Create a disposable that will dispose all input disposables in parallel.
- * @param {Array<Disposable>} disposables
- * @return {Disposable}
- */
-var all = function (disposables) { return create(disposeAll, disposables); };
-
-var disposeAll = function (disposables) { return Promise.all(map$1(disposeSafely, disposables)); };
-
-/**
- * Create a disposable from a promise for another disposable
- * @param {Promise<Disposable>} disposablePromise
- * @return {Disposable}
- */
-
-
-/**
- * Create a disposable proxy that allows its underlying disposable to
- * be set later.
- * @return {SettableDisposable}
- */
-var settable = function () { return new SettableDisposable(); };
-
-/**
- * Wrap an existing disposable (which may not already have been once()d)
- * so that it will only dispose its underlying resource at most once.
- * @param {{ dispose: function() }} disposable
- * @return {Disposable} wrapped disposable
- */
-var once = function (disposable) { return new MemoizedDisposable(disposable); };
-
-/** @license MIT License (c) copyright 2010-2016 original author or authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-
-function fatalError (e) {
-  setTimeout(function () {
-    throw e
-  }, 0);
-}
-
-/** @license MIT License (c) copyright 2010-2016 original author or authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-
-var propagateTask$1 = function (run, value, sink) { return new PropagateTask(run, value, sink); };
-
-var propagateEventTask$1 = function (value, sink) { return propagateTask$1(runEvent, value, sink); };
-
-var propagateEndTask$1 = function (value, sink) { return propagateTask$1(runEnd, value, sink); };
-
-var propagateErrorTask$1 = function (value, sink) { return propagateTask$1(runError, value, sink); };
-
-var PropagateTask = function PropagateTask (run, value, sink) {
-  this._run = run;
-  this.value = value;
-  this.sink = sink;
-  this.active = true;
-};
-
-PropagateTask.prototype.dispose = function dispose () {
-  this.active = false;
-};
-
-PropagateTask.prototype.run = function run (t) {
-  if (!this.active) {
-    return
-  }
-  var run = this._run;
-  run(t, this.value, this.sink, this);
-};
-
-PropagateTask.prototype.error = function error$1 (t, e) {
-  // TODO: Remove this check and just do this.sink.error(t, e)?
-  if (!this.active) {
-    return fatalError(e)
-  }
-  this.sink.error(t, e);
-};
-
-var runEvent = function (t, x, sink) { return sink.event(t, x); };
-
-var runEnd = function (t, x, sink) { return sink.end(t, x); };
-
-var runError = function (t, e, sink) { return sink.error(t, e); };
-
-var Just = function Just (x) {
-  this.value = x;
-};
-
-Just.prototype.run = function run (sink, scheduler) {
-  return scheduler.asap(propagateTask$1(runJust, this.value, sink))
-};
-
-function runJust (t, x, sink) {
-  sink.event(t, x);
-  sink.end(t, undefined);
-}
-
-var EmptySource = function EmptySource () {};
-
-EmptySource.prototype.run = function run (sink, scheduler) {
-  var task = propagateEndTask$1(undefined, sink);
-  scheduler.asap(task);
-
-  return create(disposeEmpty, task)
-};
-
-var disposeEmpty = function (task) { return task.dispose(); };
-
-var NeverSource = function NeverSource () {};
-
-NeverSource.prototype.run = function run () {
-  return empty$1()
-};
-
-/** @license MIT License (c) copyright 2010-2016 original author or authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-
-/**
- * Create a stream of events that occur at a regular period
- * @param {Number} period periodicity of events in millis
- * @returns {Stream} new stream of periodic events, the event value is undefined
- */
-function periodic (period) {
-  return new Stream(new Periodic(period))
-}
-
-var Periodic = function Periodic (period) {
-  this.period = period;
-};
-
-Periodic.prototype.run = function run (sink, scheduler) {
-  return scheduler.periodic(this.period, propagateEventTask$1(undefined, sink))
-};
-
-var ArraySource = function ArraySource (a) {
-  this.array = a;
-};
-
-ArraySource.prototype.run = function run (sink, scheduler) {
-  return scheduler.asap(propagateTask$1(runProducer, this.array, sink))
-};
-
-function runProducer (t, array, sink, task) {
-  for (var i = 0, l = array.length; i < l && task.active; ++i) {
-    sink.event(t, array[i]);
-  }
-
-  task.active && end(t);
-
-  function end (t) {
-    sink.end(t);
-  }
-}
-
-/** @license MIT License (c) copyright 2010-2016 original author or authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-
-/*global Set, Symbol*/
-var iteratorSymbol;
-// Firefox ships a partial implementation using the name @@iterator.
-// https://bugzilla.mozilla.org/show_bug.cgi?id=907077#c14
-if (typeof Set === 'function' && typeof new Set()['@@iterator'] === 'function') {
-  iteratorSymbol = '@@iterator';
-} else {
-  iteratorSymbol = typeof Symbol === 'function' && Symbol.iterator ||
-  '_es6shim_iterator_';
-}
-
-
-
-function getIterator (o) {
-  return o[iteratorSymbol]()
-}
-
-var IterableSource = function IterableSource (iterable) {
-  this.iterable = iterable;
-};
-
-IterableSource.prototype.run = function run (sink, scheduler) {
-  return scheduler.asap(propagateTask$1(runProducer$1, getIterator(this.iterable), sink))
-};
-
-function runProducer$1 (t, iterator, sink, task) {
-  var r = iterator.next();
-
-  while (!r.done && task.active) {
-    sink.event(t, r.value);
-    r = iterator.next();
-  }
-
-  task.active && sink.end(t, r.value);
-}
-
-/** @license MIT License (c) copyright 2010-2016 original author or authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-
-var runEffects$1 = function (ref, scheduler) {
-  var source = ref.source;
-
-  return runSourceEffects(source, scheduler);
-};
-
-var runSourceEffects = function (source, scheduler) { return new Promise(function (resolve, reject) { return runSource(source, scheduler, resolve, reject); }); };
-
-function runSource (source, scheduler, resolve, reject) {
-  var disposable = settable();
+function runStream (stream, scheduler, resolve, reject) {
+  var disposable = new SettableDisposable();
   var observer = new RunEffectsSink(resolve, reject, disposable);
 
-  disposable.setDisposable(source.run(observer, scheduler));
+  disposable.setDisposable(stream.run(observer, scheduler));
 }
 
 var RunEffectsSink = function RunEffectsSink (end, error, disposable) {
@@ -455,46 +388,62 @@ var RunEffectsSink = function RunEffectsSink (end, error, disposable) {
 
 RunEffectsSink.prototype.event = function event (t, x) {};
 
-RunEffectsSink.prototype.end = function end (t, x) {
+RunEffectsSink.prototype.end = function end (t) {
   if (!this.active) {
     return
   }
-  this.active = false;
-  disposeThen(this._end, this._error, this._disposable, x);
+  this._dispose(this._error, this._end, undefined);
 };
 
-RunEffectsSink.prototype.error = function error$1 (t, e) {
-  this.active = false;
-  disposeThen(this._error, this._error, this._disposable, e);
+RunEffectsSink.prototype.error = function error (t, e) {
+  this._dispose(this._error, this._error, e);
 };
 
-var disposeThen = function (end, error, disposable, x) { return Promise.resolve(disposable.dispose()).then(function () { return end(x); }, error); };
+RunEffectsSink.prototype._dispose = function _dispose (error, end, x) {
+  this.active = false;
+  tryDispose$1(error, end, x, this._disposable);
+};
 
-/** @license MIT License (c) copyright 2010-2016 original author or authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
+function tryDispose$1 (error, end, x, disposable) {
+  try {
+    disposable.dispose();
+  } catch (e) {
+    error(e);
+    return
+  }
 
-/**
- * A sink mixin that simply forwards event, end, and error to
- * another sink.
- * @param sink
- * @constructor
- */
-function Pipe (sink) {
-  this.sink = sink;
+  end(x);
 }
 
-Pipe.prototype.event = function (t, x) {
-  return this.sink.event(t, x)
+var Loop = function Loop (stepper, seed, source) {
+  this.step = stepper;
+  this.seed = seed;
+  this.source = source;
 };
 
-Pipe.prototype.end = function (t, x) {
-  return this.sink.end(t, x)
+Loop.prototype.run = function run (sink, scheduler) {
+  return this.source.run(new LoopSink(this.step, this.seed, sink), scheduler)
 };
 
-Pipe.prototype.error = function (t, e) {
-  return this.sink.error(t, e)
-};
+var LoopSink = (function (Pipe$$1) {
+  function LoopSink (stepper, seed, sink) {
+    Pipe$$1.call(this, sink);
+    this.step = stepper;
+    this.seed = seed;
+  }
+
+  if ( Pipe$$1 ) { LoopSink.__proto__ = Pipe$$1; }
+  LoopSink.prototype = Object.create( Pipe$$1 && Pipe$$1.prototype );
+  LoopSink.prototype.constructor = LoopSink;
+
+  LoopSink.prototype.event = function event (t, x) {
+    var result = this.step(this.seed, x);
+    this.seed = result.seed;
+    this.sink.event(t, result.value);
+  };
+
+  return LoopSink;
+}(Pipe));
 
 var Scan = function Scan (f, z, source) {
   this.source = source;
@@ -505,15 +454,14 @@ var Scan = function Scan (f, z, source) {
 Scan.prototype.run = function run (sink, scheduler) {
   var d1 = scheduler.asap(propagateEventTask$1(this.value, sink));
   var d2 = this.source.run(new ScanSink(this.f, this.value, sink), scheduler);
-  return all([d1, d2])
+  return disposeBoth(d1, d2)
 };
 
 var ScanSink = (function (Pipe$$1) {
   function ScanSink (f, z, sink) {
-    Pipe$$1.call(this);
+    Pipe$$1.call(this, sink);
     this.f = f;
     this.value = z;
-    this.sink = sink;
   }
 
   if ( Pipe$$1 ) { ScanSink.__proto__ = Pipe$$1; }
@@ -529,19 +477,130 @@ var ScanSink = (function (Pipe$$1) {
   return ScanSink;
 }(Pipe));
 
-function next (generate, x) {
-  return generate.active ? handle(generate, generate.iterator.next(x)) : x
+var UnfoldStream = function UnfoldStream (f, seed) {
+  this.f = f;
+  this.value = seed;
+};
+
+UnfoldStream.prototype.run = function run (sink, scheduler) {
+  return new Unfold(this.f, this.value, sink, scheduler)
+};
+
+var Unfold = function Unfold (f, x, sink, scheduler) {
+  var this$1 = this;
+
+  this.f = f;
+  this.sink = sink;
+  this.scheduler = scheduler;
+  this.active = true;
+
+  var err = function (e) { return this$1.sink.error(this$1.scheduler.now(), e); };
+
+  var start = function (unfold) { return stepUnfold(unfold, x); };
+
+  Promise.resolve(this).then(start).catch(err);
+};
+
+Unfold.prototype.dispose = function dispose () {
+  this.active = false;
+};
+
+function stepUnfold (unfold, x) {
+  var f = unfold.f;
+  return Promise.resolve(f(x))
+    .then(function (tuple) { return continueUnfold(unfold, tuple); })
 }
+
+function continueUnfold (unfold, tuple) {
+  if (tuple.done) {
+    unfold.sink.end(unfold.scheduler.now());
+    return tuple.value
+  }
+
+  unfold.sink.event(unfold.scheduler.now(), tuple.value);
+
+  return unfold.active ? stepUnfold(unfold, tuple.seed) : tuple.value
+}
+
+var IterateStream = function IterateStream (f, x) {
+  this.f = f;
+  this.value = x;
+};
+
+IterateStream.prototype.run = function run (sink, scheduler) {
+  return new Iterate(this.f, this.value, sink, scheduler)
+};
+
+var Iterate = function Iterate (f, initial, sink, scheduler) {
+  var this$1 = this;
+
+  this.f = f;
+  this.sink = sink;
+  this.scheduler = scheduler;
+  this.active = true;
+
+  var err = function (e) { return this$1.sink.error(this$1.scheduler.now(), e); };
+
+  var start = function (iterate) { return stepIterate(iterate, initial); };
+
+  Promise.resolve(this).then(start).catch(err);
+};
+
+Iterate.prototype.dispose = function dispose () {
+  this.active = false;
+};
+
+function stepIterate (iterate, x) {
+  iterate.sink.event(iterate.scheduler.now(), x);
+
+  if (!iterate.active) {
+    return x
+  }
+
+  var f = iterate.f;
+  return Promise.resolve(f(x))
+    .then(function (y) { return continueIterate(iterate, y); })
+}
+
+var continueIterate = function (iterate, x) { return iterate.active ? stepIterate(iterate, x) : iterate.value; };
+
+var GeneratorStream = function GeneratorStream (f, args) {
+  this.f = f;
+  this.args = args;
+};
+
+GeneratorStream.prototype.run = function run (sink, scheduler) {
+  return new Generate(this.f.apply(void 0, this.args), sink, scheduler)
+};
+
+var Generate = function Generate (iterator, sink, scheduler) {
+  var this$1 = this;
+
+  this.iterator = iterator;
+  this.sink = sink;
+  this.scheduler = scheduler;
+  this.active = true;
+
+  var err = function (e) { return this$1.sink.error(this$1.scheduler.now(), e); };
+
+  Promise.resolve(this).then(next).catch(err);
+};
+
+Generate.prototype.dispose = function dispose () {
+  this.active = false;
+};
+
+var next = function (generate, x) { return generate.active ? handle(generate, generate.iterator.next(x)) : x; };
 
 function handle (generate, result) {
   if (result.done) {
-    return generate.sink.end(generate.scheduler.now(), result.value)
+    return generate.sink.end(generate.scheduler.now())
   }
 
   return Promise.resolve(result.value).then(function (x) {
     return emit(generate, x)
   }, function (e) {
-    return error$1(generate, e)
+    return error(generate, e)
   })
 }
 
@@ -550,18 +609,80 @@ function emit (generate, x) {
   return next(generate, x)
 }
 
-function error$1 (generate, e) {
+function error (generate, e) {
   return handle(generate, generate.iterator.throw(e))
 }
+
+var ContinueWith = function ContinueWith (f, source) {
+  this.f = f;
+  this.source = source;
+};
+
+ContinueWith.prototype.run = function run (sink, scheduler) {
+  return new ContinueWithSink(this.f, this.source, sink, scheduler)
+};
+
+var ContinueWithSink = (function (Pipe$$1) {
+  function ContinueWithSink (f, source, sink, scheduler) {
+    Pipe$$1.call(this, sink);
+    this.f = f;
+    this.scheduler = scheduler;
+    this.active = true;
+    this.disposable = disposeOnce(source.run(this, scheduler));
+  }
+
+  if ( Pipe$$1 ) { ContinueWithSink.__proto__ = Pipe$$1; }
+  ContinueWithSink.prototype = Object.create( Pipe$$1 && Pipe$$1.prototype );
+  ContinueWithSink.prototype.constructor = ContinueWithSink;
+
+  ContinueWithSink.prototype.event = function event (t, x) {
+    if (!this.active) {
+      return
+    }
+    this.sink.event(t, x);
+  };
+
+  ContinueWithSink.prototype.end = function end (t) {
+    if (!this.active) {
+      return
+    }
+
+    tryDispose(t, this.disposable, this.sink);
+    this._startNext(t, this.sink);
+  };
+
+  ContinueWithSink.prototype._startNext = function _startNext (t, sink) {
+    try {
+      this.disposable = this._continue(this.f, sink);
+    } catch (e) {
+      sink.error(t, e);
+    }
+  };
+
+  ContinueWithSink.prototype._continue = function _continue (f, sink) {
+    return f().run(sink, this.scheduler)
+  };
+
+  ContinueWithSink.prototype.dispose = function dispose () {
+    this.active = false;
+    return this.disposable.dispose()
+  };
+
+  return ContinueWithSink;
+}(Pipe));
 
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
 /** @author Brian Cavalier */
 /** @author John Hann */
 
-function Filter (p, source) {
+var Filter = function Filter (p, source) {
   this.p = p;
   this.source = source;
-}
+};
+
+Filter.prototype.run = function run (sink, scheduler) {
+  return this.source.run(new FilterSink(this.p, sink), scheduler)
+};
 
 /**
  * Create a filtered source, fusing adjacent filter.filter if possible
@@ -569,7 +690,7 @@ function Filter (p, source) {
  * @param {{run:function}} source source to filter
  * @returns {Filter} filtered source
  */
-Filter.create = function createFilter (p, source) {
+Filter.create = function create (p, source) {
   if (source instanceof Filter) {
     return new Filter(and(source.p, p), source.source)
   }
@@ -577,66 +698,72 @@ Filter.create = function createFilter (p, source) {
   return new Filter(p, source)
 };
 
-Filter.prototype.run = function (sink, scheduler) {
-  return this.source.run(new FilterSink(this.p, sink), scheduler)
-};
-
-function FilterSink (p, sink) {
-  this.p = p;
-  this.sink = sink;
-}
-
-FilterSink.prototype.end = Pipe.prototype.end;
-FilterSink.prototype.error = Pipe.prototype.error;
-
-FilterSink.prototype.event = function (t, x) {
-  var p = this.p;
-  p(x) && this.sink.event(t, x);
-};
-
-function and (p, q) {
-  return function (x) {
-    return p(x) && q(x)
+var FilterSink = (function (Pipe$$1) {
+  function FilterSink (p, sink) {
+    Pipe$$1.call(this, sink);
+    this.p = p;
   }
-}
+
+  if ( Pipe$$1 ) { FilterSink.__proto__ = Pipe$$1; }
+  FilterSink.prototype = Object.create( Pipe$$1 && Pipe$$1.prototype );
+  FilterSink.prototype.constructor = FilterSink;
+
+  FilterSink.prototype.event = function event (t, x) {
+    var p = this.p;
+    p(x) && this.sink.event(t, x);
+  };
+
+  return FilterSink;
+}(Pipe));
+
+var and = function (p, q) { return function (x) { return p(x) && q(x); }; };
 
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
 /** @author Brian Cavalier */
 /** @author John Hann */
 
-function FilterMap (p, f, source) {
+var FilterMap = function FilterMap (p, f, source) {
   this.p = p;
   this.f = f;
   this.source = source;
-}
+};
 
-FilterMap.prototype.run = function (sink, scheduler) {
+FilterMap.prototype.run = function run (sink, scheduler) {
   return this.source.run(new FilterMapSink(this.p, this.f, sink), scheduler)
 };
 
-function FilterMapSink (p, f, sink) {
-  this.p = p;
-  this.f = f;
-  this.sink = sink;
-}
+var FilterMapSink = (function (Pipe$$1) {
+  function FilterMapSink (p, f, sink) {
+    Pipe$$1.call(this, sink);
+    this.p = p;
+    this.f = f;
+  }
 
-FilterMapSink.prototype.event = function (t, x) {
-  var f = this.f;
-  var p = this.p;
-  p(x) && this.sink.event(t, f(x));
-};
+  if ( Pipe$$1 ) { FilterMapSink.__proto__ = Pipe$$1; }
+  FilterMapSink.prototype = Object.create( Pipe$$1 && Pipe$$1.prototype );
+  FilterMapSink.prototype.constructor = FilterMapSink;
 
-FilterMapSink.prototype.end = Pipe.prototype.end;
-FilterMapSink.prototype.error = Pipe.prototype.error;
+  FilterMapSink.prototype.event = function event (t, x) {
+    var f = this.f;
+    var p = this.p;
+    p(x) && this.sink.event(t, f(x));
+  };
+
+  return FilterMapSink;
+}(Pipe));
 
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
 /** @author Brian Cavalier */
 /** @author John Hann */
 
-function Map$1 (f, source) {
+var Map$1 = function Map (f, source) {
   this.f = f;
   this.source = source;
-}
+};
+
+Map$1.prototype.run = function run (sink, scheduler) { // eslint-disable-line no-extend-native
+  return this.source.run(new MapSink(this.f, sink), scheduler)
+};
 
 /**
  * Create a mapped source, fusing adjacent map.map, filter.map,
@@ -645,7 +772,7 @@ function Map$1 (f, source) {
  * @param {{run:function}} source source to map
  * @returns {Map|FilterMap} mapped source, possibly fused
  */
-Map$1.create = function createMap (f, source) {
+Map$1.create = function create (f, source) {
   if (source instanceof Map$1) {
     return new Map$1(compose(f, source.f), source.source)
   }
@@ -657,22 +784,23 @@ Map$1.create = function createMap (f, source) {
   return new Map$1(f, source)
 };
 
-Map$1.prototype.run = function (sink, scheduler) { // eslint-disable-line no-extend-native
-  return this.source.run(new MapSink(this.f, sink), scheduler)
-};
+var MapSink = (function (Pipe$$1) {
+  function MapSink (f, sink) {
+    Pipe$$1.call(this, sink);
+    this.f = f;
+  }
 
-function MapSink (f, sink) {
-  this.f = f;
-  this.sink = sink;
-}
+  if ( Pipe$$1 ) { MapSink.__proto__ = Pipe$$1; }
+  MapSink.prototype = Object.create( Pipe$$1 && Pipe$$1.prototype );
+  MapSink.prototype.constructor = MapSink;
 
-MapSink.prototype.end = Pipe.prototype.end;
-MapSink.prototype.error = Pipe.prototype.error;
+  MapSink.prototype.event = function event (t, x) {
+    var f = this.f;
+    this.sink.event(t, f(x));
+  };
 
-MapSink.prototype.event = function (t, x) {
-  var f = this.f;
-  this.sink.event(t, f(x));
-};
+  return MapSink;
+}(Pipe));
 
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
 /** @author Brian Cavalier */
@@ -684,9 +812,7 @@ MapSink.prototype.event = function (t, x) {
  * @param {Stream} stream stream to map
  * @returns {Stream} stream containing items transformed by f
  */
-function map$2 (f, stream) {
-  return new Stream(Map$1.create(f, stream.source))
-}
+var map$2 = function (f, stream) { return Map$1.create(f, stream); };
 
 /**
 * Replace each value in the stream with x
@@ -694,11 +820,7 @@ function map$2 (f, stream) {
 * @param {Stream} stream
 * @returns {Stream} stream containing items replaced with x
 */
-function constant$1 (x, stream) {
-  return map$2(function () {
-    return x
-  }, stream)
-}
+var constant$1 = function (x, stream) { return map$2(function () { return x; }, stream); };
 
 /**
 * Perform a side effect for each item in the stream
@@ -707,55 +829,418 @@ function constant$1 (x, stream) {
 * @param {Stream} stream stream to tap
 * @returns {Stream} new stream containing the same items as this stream
 */
-function tap$1 (f, stream) {
-  return new Stream(new Tap(f, stream.source))
-}
+var tap$1 = function (f, stream) { return new Tap(f, stream); };
 
-function Tap (f, source) {
+var Tap = function Tap (f, source) {
   this.source = source;
   this.f = f;
-}
+};
 
-Tap.prototype.run = function (sink, scheduler) {
+Tap.prototype.run = function run (sink, scheduler) {
   return this.source.run(new TapSink(this.f, sink), scheduler)
 };
 
-function TapSink (f, sink) {
-  this.sink = sink;
-  this.f = f;
+var TapSink = (function (Pipe$$1) {
+  function TapSink (f, sink) {
+    Pipe$$1.call(this, sink);
+    this.f = f;
+  }
+
+  if ( Pipe$$1 ) { TapSink.__proto__ = Pipe$$1; }
+  TapSink.prototype = Object.create( Pipe$$1 && Pipe$$1.prototype );
+  TapSink.prototype.constructor = TapSink;
+
+  TapSink.prototype.event = function event (t, x) {
+    var f = this.f;
+    f(x);
+    this.sink.event(t, x);
+  };
+
+  return TapSink;
+}(Pipe));
+
+/** @license MIT License (c) copyright 2010-2016 original author or authors */
+/** @author Brian Cavalier */
+/** @author John Hann */
+
+var IndexSink = (function (Sink) {
+  function IndexSink (i, sink) {
+    Sink.call(this, sink);
+    this.index = i;
+    this.active = true;
+    this.value = undefined;
+  }
+
+  if ( Sink ) { IndexSink.__proto__ = Sink; }
+  IndexSink.prototype = Object.create( Sink && Sink.prototype );
+  IndexSink.prototype.constructor = IndexSink;
+
+  IndexSink.prototype.event = function event (t, x) {
+    if (!this.active) {
+      return
+    }
+    this.value = x;
+    this.sink.event(t, this);
+  };
+
+  IndexSink.prototype.end = function end (t) {
+    if (!this.active) {
+      return
+    }
+    this.active = false;
+    this.sink.event(t, this);
+  };
+
+  return IndexSink;
+}(Pipe));
+
+/** @license MIT License (c) copyright 2010-2016 original author or authors */
+/** @author Brian Cavalier */
+/** @author John Hann */
+
+function invoke (f, args) {
+	/*eslint complexity: [2,7]*/
+  switch (args.length) {
+    case 0: return f()
+    case 1: return f(args[0])
+    case 2: return f(args[0], args[1])
+    case 3: return f(args[0], args[1], args[2])
+    case 4: return f(args[0], args[1], args[2], args[3])
+    case 5: return f(args[0], args[1], args[2], args[3], args[4])
+    default:
+      return f.apply(void 0, args)
+  }
 }
 
-TapSink.prototype.end = Pipe.prototype.end;
-TapSink.prototype.error = Pipe.prototype.error;
-
-TapSink.prototype.event = function (t, x) {
-  var f = this.f;
-  f(x);
-  this.sink.event(t, x);
+var Combine = function Combine (f, sources) {
+  this.f = f;
+  this.sources = sources;
 };
+
+Combine.prototype.run = function run (sink, scheduler) {
+    var this$1 = this;
+
+  var l = this.sources.length;
+  var disposables = new Array(l);
+  var sinks = new Array(l);
+
+  var mergeSink = new CombineSink(disposables, sinks, sink, this.f);
+
+  for (var indexSink = (void 0), i = 0; i < l; ++i) {
+    indexSink = sinks[i] = new IndexSink(i, mergeSink);
+    disposables[i] = this$1.sources[i].run(indexSink, scheduler);
+  }
+
+  return disposeAll(disposables)
+};
+
+var CombineSink = (function (Pipe$$1) {
+  function CombineSink (disposables, sinks, sink, f) {
+    Pipe$$1.call(this, sink);
+    this.disposables = disposables;
+    this.sinks = sinks;
+    this.f = f;
+
+    var l = sinks.length;
+    this.awaiting = l;
+    this.values = new Array(l);
+    this.hasValue = new Array(l).fill(false);
+    this.activeCount = sinks.length;
+  }
+
+  if ( Pipe$$1 ) { CombineSink.__proto__ = Pipe$$1; }
+  CombineSink.prototype = Object.create( Pipe$$1 && Pipe$$1.prototype );
+  CombineSink.prototype.constructor = CombineSink;
+
+  CombineSink.prototype.event = function event (t, indexedValue) {
+    if (!indexedValue.active) {
+      this._dispose(t, indexedValue.index);
+      return
+    }
+
+    var i = indexedValue.index;
+    var awaiting = this._updateReady(i);
+
+    this.values[i] = indexedValue.value;
+    if (awaiting === 0) {
+      this.sink.event(t, invoke(this.f, this.values));
+    }
+  };
+
+  CombineSink.prototype._updateReady = function _updateReady (index) {
+    if (this.awaiting > 0) {
+      if (!this.hasValue[index]) {
+        this.hasValue[index] = true;
+        this.awaiting -= 1;
+      }
+    }
+    return this.awaiting
+  };
+
+  CombineSink.prototype._dispose = function _dispose (t, index) {
+    tryDispose(t, this.disposables[index], this.sink);
+    if (--this.activeCount === 0) {
+      this.sink.end(t);
+    }
+  };
+
+  return CombineSink;
+}(Pipe));
+
+/** @license MIT License (c) copyright 2010-2016 original author or authors */
+/** @author Brian Cavalier */
+/** @author John Hann */
+
+/**
+ * Doubly linked list
+ * @constructor
+ */
+function LinkedList () {
+  this.head = null;
+  this.length = 0;
+}
+
+/**
+ * Add a node to the end of the list
+ * @param {{prev:Object|null, next:Object|null, dispose:function}} x node to add
+ */
+LinkedList.prototype.add = function (x) {
+  if (this.head !== null) {
+    this.head.prev = x;
+    x.next = this.head;
+  }
+  this.head = x;
+  ++this.length;
+};
+
+/**
+ * Remove the provided node from the list
+ * @param {{prev:Object|null, next:Object|null, dispose:function}} x node to remove
+ */
+LinkedList.prototype.remove = function (x) { // eslint-disable-line  complexity
+  --this.length;
+  if (x === this.head) {
+    this.head = this.head.next;
+  }
+  if (x.next !== null) {
+    x.next.prev = x.prev;
+    x.next = null;
+  }
+  if (x.prev !== null) {
+    x.prev.next = x.next;
+    x.prev = null;
+  }
+};
+
+/**
+ * @returns {boolean} true iff there are no nodes in the list
+ */
+LinkedList.prototype.isEmpty = function () {
+  return this.length === 0
+};
+
+/**
+ * Dispose all nodes
+ * @returns {Promise} promise that fulfills when all nodes have been disposed,
+ *  or rejects if an error occurs while disposing
+ */
+LinkedList.prototype.dispose = function () {
+  if (this.isEmpty()) {
+    return Promise.resolve()
+  }
+
+  var promises = [];
+  var x = this.head;
+  this.head = null;
+  this.length = 0;
+
+  while (x !== null) {
+    promises.push(x.dispose());
+    x = x.next;
+  }
+
+  return Promise.all(promises)
+};
+
+var MergeConcurrently = function MergeConcurrently (f, concurrency, source) {
+  this.f = f;
+  this.concurrency = concurrency;
+  this.source = source;
+};
+
+MergeConcurrently.prototype.run = function run (sink, scheduler) {
+  return new Outer(this.f, this.concurrency, this.source, sink, scheduler)
+};
+
+var Outer = function Outer (f, concurrency, source, sink, scheduler) {
+  this.f = f;
+  this.concurrency = concurrency;
+  this.sink = sink;
+  this.scheduler = scheduler;
+  this.pending = [];
+  this.current = new LinkedList();
+  this.disposable = disposeOnce(source.run(this, scheduler));
+  this.active = true;
+};
+
+Outer.prototype.event = function event (t, x) {
+  this._addInner(t, x);
+};
+
+Outer.prototype._addInner = function _addInner (t, x) {
+  if (this.current.length < this.concurrency) {
+    this._startInner(t, x);
+  } else {
+    this.pending.push(x);
+  }
+};
+
+Outer.prototype._startInner = function _startInner (t, x) {
+  try {
+    this._initInner(t, x);
+  } catch (e) {
+    this.error(t, e);
+  }
+};
+
+Outer.prototype._initInner = function _initInner (t, x) {
+  var innerSink = new Inner(t, this, this.sink);
+  innerSink.disposable = mapAndRun(this.f, x, innerSink, this.scheduler);
+  this.current.add(innerSink);
+};
+
+Outer.prototype.end = function end (t) {
+  this.active = false;
+  tryDispose(t, this.disposable, this.sink);
+  this._checkEnd(t);
+};
+
+Outer.prototype.error = function error (t, e) {
+  this.active = false;
+  this.sink.error(t, e);
+};
+
+Outer.prototype.dispose = function dispose () {
+  this.active = false;
+  this.pending.length = 0;
+  this.disposable.dispose();
+  this.current.dispose();
+};
+
+Outer.prototype._endInner = function _endInner (t, inner) {
+  this.current.remove(inner);
+  tryDispose(t, inner, this);
+
+  if (this.pending.length === 0) {
+    this._checkEnd(t);
+  } else {
+    this._startInner(t, this.pending.shift());
+  }
+};
+
+Outer.prototype._checkEnd = function _checkEnd (t) {
+  if (!this.active && this.current.isEmpty()) {
+    this.sink.end(t);
+  }
+};
+
+var mapAndRun = function (f, x, sink, scheduler) { return f(x).run(sink, scheduler); };
+
+var Inner = function Inner (time, outer, sink) {
+  this.prev = this.next = null;
+  this.time = time;
+  this.outer = outer;
+  this.sink = sink;
+  this.disposable = void 0;
+};
+
+Inner.prototype.event = function event (t, x) {
+  this.sink.event(Math.max(t, this.time), x);
+};
+
+Inner.prototype.end = function end (t) {
+  this.outer._endInner(Math.max(t, this.time), this);
+};
+
+Inner.prototype.error = function error (t, e) {
+  this.outer.error(Math.max(t, this.time), e);
+};
+
+Inner.prototype.dispose = function dispose () {
+  return this.disposable.dispose()
+};
+
+var Merge = function Merge (sources) {
+  this.sources = sources;
+};
+
+Merge.prototype.run = function run (sink, scheduler) {
+    var this$1 = this;
+
+  var l = this.sources.length;
+  var disposables = new Array(l);
+  var sinks = new Array(l);
+
+  var mergeSink = new MergeSink(disposables, sinks, sink);
+
+  for (var indexSink = (void 0), i = 0; i < l; ++i) {
+    indexSink = sinks[i] = new IndexSink(i, mergeSink);
+    disposables[i] = this$1.sources[i].run(indexSink, scheduler);
+  }
+
+  return disposeAll(disposables)
+};
+
+var MergeSink = (function (Pipe$$1) {
+  function MergeSink (disposables, sinks, sink) {
+    Pipe$$1.call(this, sink);
+    this.disposables = disposables;
+    this.activeCount = sinks.length;
+  }
+
+  if ( Pipe$$1 ) { MergeSink.__proto__ = Pipe$$1; }
+  MergeSink.prototype = Object.create( Pipe$$1 && Pipe$$1.prototype );
+  MergeSink.prototype.constructor = MergeSink;
+
+  MergeSink.prototype.event = function event (t, indexValue) {
+    if (!indexValue.active) {
+      this._dispose(t, indexValue.index);
+      return
+    }
+    this.sink.event(t, indexValue.value);
+  };
+
+  MergeSink.prototype._dispose = function _dispose (t, index) {
+    tryDispose(t, this.disposables[index], this.sink);
+    if (--this.activeCount === 0) {
+      this.sink.end(t);
+    }
+  };
+
+  return MergeSink;
+}(Pipe));
 
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
 
-var sample$1 = function (f, sampler, stream) { return new Stream(new SampleSource(f, sampler, stream)); };
+var sample$1 = function (f, sampler, stream) { return new Sample(f, sampler, stream); };
 
-var SampleSource = function SampleSource (f, sampler, stream) {
-  this.source = stream.source;
-  this.sampler = sampler.source;
+var Sample = function Sample (f, sampler, stream) {
+  this.source = stream;
+  this.sampler = sampler;
   this.f = f;
 };
 
-SampleSource.prototype.run = function run (sink, scheduler) {
+Sample.prototype.run = function run (sink, scheduler) {
   var sampleSink = new SampleSink(this.f, this.source, sink);
   var sourceDisposable = this.source.run(sampleSink.hold, scheduler);
   var samplerDisposable = this.sampler.run(sampleSink, scheduler);
 
-  return all([samplerDisposable, sourceDisposable])
+  return disposeBoth(samplerDisposable, sourceDisposable)
 };
 
 var SampleSink = (function (Pipe$$1) {
   function SampleSink (f, source, sink) {
     Pipe$$1.call(this, sink);
-    this.sink = sink;
     this.source = source;
     this.f = f;
     this.hold = new SampleHold(this);
@@ -795,13 +1280,169 @@ var SampleHold = (function (Pipe$$1) {
   return SampleHold;
 }(Pipe));
 
+/** @license MIT License (c) copyright 2010-2016 original author or authors */
+/** @author Brian Cavalier */
+/** @author John Hann */
+
+// Based on https://github.com/petkaantonov/deque
+
+function Queue (capPow2) {
+  this._capacity = capPow2 || 32;
+  this._length = 0;
+  this._head = 0;
+}
+
+Queue.prototype.push = function (x) {
+  var len = this._length;
+  this._checkCapacity(len + 1);
+
+  var i = (this._head + len) & (this._capacity - 1);
+  this[i] = x;
+  this._length = len + 1;
+};
+
+Queue.prototype.shift = function () {
+  var head = this._head;
+  var x = this[head];
+
+  this[head] = void 0;
+  this._head = (head + 1) & (this._capacity - 1);
+  this._length--;
+  return x
+};
+
+Queue.prototype.isEmpty = function () {
+  return this._length === 0
+};
+
+Queue.prototype.length = function () {
+  return this._length
+};
+
+Queue.prototype._checkCapacity = function (size) {
+  if (this._capacity < size) {
+    this._ensureCapacity(this._capacity << 1);
+  }
+};
+
+Queue.prototype._ensureCapacity = function (capacity) {
+  var oldCapacity = this._capacity;
+  this._capacity = capacity;
+
+  var last = this._head + this._length;
+
+  if (last > oldCapacity) {
+    copy$1(this, 0, this, oldCapacity, last & (oldCapacity - 1));
+  }
+};
+
+function copy$1 (src, srcIndex, dst, dstIndex, len) {
+  for (var j = 0; j < len; ++j) {
+    dst[j + dstIndex] = src[j + srcIndex];
+    src[j + srcIndex] = void 0;
+  }
+}
+
+var Zip = function Zip (f, sources) {
+  this.f = f;
+  this.sources = sources;
+};
+
+Zip.prototype.run = function run (sink, scheduler) {
+    var this$1 = this;
+
+  var l = this.sources.length;
+  var disposables = new Array(l);
+  var sinks = new Array(l);
+  var buffers = new Array(l);
+
+  var zipSink = new ZipSink(this.f, buffers, sinks, sink);
+
+  for (var indexSink = (void 0), i = 0; i < l; ++i) {
+    buffers[i] = new Queue();
+    indexSink = sinks[i] = new IndexSink(i, zipSink);
+    disposables[i] = this$1.sources[i].run(indexSink, scheduler);
+  }
+
+  return disposeAll(disposables)
+};
+
+var ZipSink = (function (Pipe$$1) {
+  function ZipSink (f, buffers, sinks, sink) {
+    Pipe$$1.call(this, sink);
+    this.f = f;
+    this.sinks = sinks;
+    this.buffers = buffers;
+  }
+
+  if ( Pipe$$1 ) { ZipSink.__proto__ = Pipe$$1; }
+  ZipSink.prototype = Object.create( Pipe$$1 && Pipe$$1.prototype );
+  ZipSink.prototype.constructor = ZipSink;
+
+  ZipSink.prototype.event = function event (t, indexedValue) {
+    /* eslint complexity: [1, 5] */
+    if (!indexedValue.active) {
+      this._dispose(t, indexedValue.index);
+      return
+    }
+
+    var buffers = this.buffers;
+    var buffer = buffers[indexedValue.index];
+
+    buffer.push(indexedValue.value);
+
+    if (buffer.length() === 1) {
+      if (!ready(this.buffers)) {
+        return
+      }
+
+      emitZipped(this.f, t, buffers, this.sink);
+
+      if (ended(this.buffers, this.sinks)) {
+        this.sink.end(t);
+      }
+    }
+  };
+
+  ZipSink.prototype._dispose = function _dispose (t, index) {
+    var buffer = this.buffers[index];
+    if (buffer.isEmpty()) {
+      this.sink.end(t);
+    }
+  };
+
+  return ZipSink;
+}(Pipe));
+
+var emitZipped = function (f, t, buffers, sink) { return sink.event(t, invoke(f, map$1(head, buffers))); };
+
+var head = function (buffer) { return buffer.shift(); };
+
+function ended (buffers, sinks) {
+  for (var i = 0, l = buffers.length; i < l; ++i) {
+    if (buffers[i].isEmpty() && !sinks[i].active) {
+      return true
+    }
+  }
+  return false
+}
+
+function ready (buffers) {
+  for (var i = 0, l = buffers.length; i < l; ++i) {
+    if (buffers[i].isEmpty()) {
+      return false
+    }
+  }
+  return true
+}
+
 var Switch = function Switch (source) {
   this.source = source;
 };
 
 Switch.prototype.run = function run (sink, scheduler) {
   var switchSink = new SwitchSink(sink, scheduler);
-  return all([switchSink, this.source.run(switchSink, scheduler)])
+  return disposeBoth(switchSink, this.source.run(switchSink, scheduler))
 };
 
 var SwitchSink = function SwitchSink (sink, scheduler) {
@@ -814,15 +1455,15 @@ var SwitchSink = function SwitchSink (sink, scheduler) {
 SwitchSink.prototype.event = function event (t, stream) {
   this._disposeCurrent(t); // TODO: capture the result of this dispose
   this.current = new Segment(t, Infinity, this, this.sink);
-  this.current.disposable = stream.source.run(this.current, this.scheduler);
+  this.current.disposable = stream.run(this.current, this.scheduler);
 };
 
-SwitchSink.prototype.end = function end (t, x) {
+SwitchSink.prototype.end = function end (t) {
   this.ended = true;
-  this._checkEnd(t, x);
+  this._checkEnd(t);
 };
 
-SwitchSink.prototype.error = function error$1 (t, e) {
+SwitchSink.prototype.error = function error (t, e) {
   this.ended = true;
   this.sink.error(t, e);
 };
@@ -844,15 +1485,15 @@ SwitchSink.prototype._disposeInner = function _disposeInner (t, inner) {
   }
 };
 
-SwitchSink.prototype._checkEnd = function _checkEnd (t, x) {
+SwitchSink.prototype._checkEnd = function _checkEnd (t) {
   if (this.ended && this.current === null) {
-    this.sink.end(t, x);
+    this.sink.end(t);
   }
 };
 
-SwitchSink.prototype._endInner = function _endInner (t, x, inner) {
+SwitchSink.prototype._endInner = function _endInner (t, inner) {
   this._disposeInner(t, inner);
-  this._checkEnd(t, x);
+  this._checkEnd(t);
 };
 
 SwitchSink.prototype._errorInner = function _errorInner (t, e, inner) {
@@ -865,7 +1506,7 @@ var Segment = function Segment (min, max, outer, sink) {
   this.max = max;
   this.outer = outer;
   this.sink = sink;
-  this.disposable = empty$1();
+  this.disposable = disposeNone();
 };
 
 Segment.prototype.event = function event (t, x) {
@@ -874,11 +1515,11 @@ Segment.prototype.event = function event (t, x) {
   }
 };
 
-Segment.prototype.end = function end (t, x) {
-  this.outer._endInner(Math.max(t, this.min), x, this);
+Segment.prototype.end = function end (t) {
+  this.outer._endInner(Math.max(t, this.min), this);
 };
 
-Segment.prototype.error = function error$1 (t, e) {
+Segment.prototype.error = function error (t, e) {
   this.outer._errorInner(Math.max(t, this.min), e, this);
 };
 
@@ -886,6 +1527,350 @@ Segment.prototype._dispose = function _dispose (t) {
   this.max = t;
   tryDispose(t, this.disposable, this.sink);
 };
+
+var SkipRepeats = function SkipRepeats (equals, source) {
+  this.equals = equals;
+  this.source = source;
+};
+
+SkipRepeats.prototype.run = function run (sink, scheduler) {
+  return this.source.run(new SkipRepeatsSink(this.equals, sink), scheduler)
+};
+
+var SkipRepeatsSink = (function (Pipe$$1) {
+  function SkipRepeatsSink (equals, sink) {
+    Pipe$$1.call(this, sink);
+    this.equals = equals;
+    this.value = void 0;
+    this.init = true;
+  }
+
+  if ( Pipe$$1 ) { SkipRepeatsSink.__proto__ = Pipe$$1; }
+  SkipRepeatsSink.prototype = Object.create( Pipe$$1 && Pipe$$1.prototype );
+  SkipRepeatsSink.prototype.constructor = SkipRepeatsSink;
+
+  SkipRepeatsSink.prototype.event = function event (t, x) {
+    if (this.init) {
+      this.init = false;
+      this.value = x;
+      this.sink.event(t, x);
+    } else if (!this.equals(this.value, x)) {
+      this.value = x;
+      this.sink.event(t, x);
+    }
+  };
+
+  return SkipRepeatsSink;
+}(Pipe));
+
+var Slice = function Slice (min, max, source) {
+  this.source = source;
+  this.min = min;
+  this.max = max;
+};
+
+Slice.prototype.run = function run (sink, scheduler) {
+  return this.source.run(new SliceSink(this.min, this.max - this.min, sink), scheduler)
+};
+
+var SliceSink = (function (Pipe$$1) {
+  function SliceSink (skip, take, sink) {
+    Pipe$$1.call(this, sink);
+    this.skip = skip;
+    this.take = take;
+  }
+
+  if ( Pipe$$1 ) { SliceSink.__proto__ = Pipe$$1; }
+  SliceSink.prototype = Object.create( Pipe$$1 && Pipe$$1.prototype );
+  SliceSink.prototype.constructor = SliceSink;
+
+  SliceSink.prototype.event = function event (t, x) {
+    /* eslint complexity: [1, 4] */
+    if (this.skip > 0) {
+      this.skip -= 1;
+      return
+    }
+
+    if (this.take === 0) {
+      return
+    }
+
+    this.take -= 1;
+    this.sink.event(t, x);
+    if (this.take === 0) {
+      this.sink.end(t);
+    }
+  };
+
+  return SliceSink;
+}(Pipe));
+
+var TakeWhile = function TakeWhile (p, source) {
+  this.p = p;
+  this.source = source;
+};
+
+TakeWhile.prototype.run = function run (sink, scheduler) {
+  return this.source.run(new TakeWhileSink(this.p, sink), scheduler)
+};
+
+var TakeWhileSink = (function (Pipe$$1) {
+  function TakeWhileSink (p, sink) {
+    Pipe$$1.call(this, sink);
+    this.p = p;
+    this.active = true;
+  }
+
+  if ( Pipe$$1 ) { TakeWhileSink.__proto__ = Pipe$$1; }
+  TakeWhileSink.prototype = Object.create( Pipe$$1 && Pipe$$1.prototype );
+  TakeWhileSink.prototype.constructor = TakeWhileSink;
+
+  TakeWhileSink.prototype.event = function event (t, x) {
+    if (!this.active) {
+      return
+    }
+
+    var p = this.p;
+    this.active = p(x);
+
+    if (this.active) {
+      this.sink.event(t, x);
+    } else {
+      this.sink.end(t);
+    }
+  };
+
+  return TakeWhileSink;
+}(Pipe));
+
+var SkipWhile = function SkipWhile (p, source) {
+  this.p = p;
+  this.source = source;
+};
+
+SkipWhile.prototype.run = function run (sink, scheduler) {
+  return this.source.run(new SkipWhileSink(this.p, sink), scheduler)
+};
+
+var SkipWhileSink = (function (Pipe$$1) {
+  function SkipWhileSink (p, sink) {
+    Pipe$$1.call(this, sink);
+    this.p = p;
+    this.skipping = true;
+  }
+
+  if ( Pipe$$1 ) { SkipWhileSink.__proto__ = Pipe$$1; }
+  SkipWhileSink.prototype = Object.create( Pipe$$1 && Pipe$$1.prototype );
+  SkipWhileSink.prototype.constructor = SkipWhileSink;
+
+  SkipWhileSink.prototype.event = function event (t, x) {
+    if (this.skipping) {
+      var p = this.p;
+      this.skipping = p(x);
+      if (this.skipping) {
+        return
+      }
+    }
+
+    this.sink.event(t, x);
+  };
+
+  return SkipWhileSink;
+}(Pipe));
+
+
+
+var SkipAfter = function SkipAfter (p, source) {
+  this.p = p;
+  this.source = source;
+};
+
+SkipAfter.prototype.run = function run (sink, scheduler) {
+  return this.source.run(new SkipAfterSink(this.p, sink), scheduler)
+};
+
+var SkipAfterSink = (function (Pipe$$1) {
+  function SkipAfterSink (p, sink) {
+    Pipe$$1.call(this, sink);
+    this.p = p;
+    this.skipping = false;
+  }
+
+  if ( Pipe$$1 ) { SkipAfterSink.__proto__ = Pipe$$1; }
+  SkipAfterSink.prototype = Object.create( Pipe$$1 && Pipe$$1.prototype );
+  SkipAfterSink.prototype.constructor = SkipAfterSink;
+
+  SkipAfterSink.prototype.event = function event (t, x) {
+    if (this.skipping) {
+      return
+    }
+
+    var p = this.p;
+    this.skipping = p(x);
+    this.sink.event(t, x);
+
+    if (this.skipping) {
+      this.sink.end(t);
+    }
+  };
+
+  return SkipAfterSink;
+}(Pipe));
+
+var Until = function Until (maxSignal, source) {
+  this.maxSignal = maxSignal;
+  this.source = source;
+};
+
+Until.prototype.run = function run (sink, scheduler) {
+  var min = new Bound(-Infinity, sink);
+  var max = new UpperBound(this.maxSignal, sink, scheduler);
+  var disposable = this.source.run(new TimeWindowSink(min, max, sink), scheduler);
+
+  return disposeAll([min, max, disposable])
+};
+
+var Since = function Since (minSignal, source) {
+  this.minSignal = minSignal;
+  this.source = source;
+};
+
+Since.prototype.run = function run (sink, scheduler) {
+  var min = new LowerBound(this.minSignal, sink, scheduler);
+  var max = new Bound(Infinity, sink);
+  var disposable = this.source.run(new TimeWindowSink(min, max, sink), scheduler);
+
+  return disposeAll([min, max, disposable])
+};
+
+var Bound = (function (Pipe$$1) {
+  function Bound (value, sink) {
+    Pipe$$1.call(this, sink);
+    this.value = value;
+  }
+
+  if ( Pipe$$1 ) { Bound.__proto__ = Pipe$$1; }
+  Bound.prototype = Object.create( Pipe$$1 && Pipe$$1.prototype );
+  Bound.prototype.constructor = Bound;
+
+  Bound.prototype.event = function event () {};
+  Bound.prototype.end = function end () {};
+
+  Bound.prototype.dispose = function dispose () {};
+
+  return Bound;
+}(Pipe));
+
+var TimeWindowSink = (function (Pipe$$1) {
+  function TimeWindowSink (min, max, sink) {
+    Pipe$$1.call(this, sink);
+    this.min = min;
+    this.max = max;
+  }
+
+  if ( Pipe$$1 ) { TimeWindowSink.__proto__ = Pipe$$1; }
+  TimeWindowSink.prototype = Object.create( Pipe$$1 && Pipe$$1.prototype );
+  TimeWindowSink.prototype.constructor = TimeWindowSink;
+
+  TimeWindowSink.prototype.event = function event (t, x) {
+    if (t >= this.min.value && t < this.max.value) {
+      this.sink.event(t, x);
+    }
+  };
+
+  return TimeWindowSink;
+}(Pipe));
+
+var LowerBound = (function (Pipe$$1) {
+  function LowerBound (signal, sink, scheduler) {
+    Pipe$$1.call(this, sink);
+    this.value = Infinity;
+    this.disposable = signal.run(this, scheduler);
+  }
+
+  if ( Pipe$$1 ) { LowerBound.__proto__ = Pipe$$1; }
+  LowerBound.prototype = Object.create( Pipe$$1 && Pipe$$1.prototype );
+  LowerBound.prototype.constructor = LowerBound;
+
+  LowerBound.prototype.event = function event (t /*, x */) {
+    if (t < this.value) {
+      this.value = t;
+    }
+  };
+
+  LowerBound.prototype.end = function end () {};
+
+  LowerBound.prototype.dispose = function dispose () {
+    return this.disposable.dispose()
+  };
+
+  return LowerBound;
+}(Pipe));
+
+var UpperBound = (function (Pipe$$1) {
+  function UpperBound (signal, sink, scheduler) {
+    Pipe$$1.call(this, sink);
+    this.value = Infinity;
+    this.disposable = signal.run(this, scheduler);
+  }
+
+  if ( Pipe$$1 ) { UpperBound.__proto__ = Pipe$$1; }
+  UpperBound.prototype = Object.create( Pipe$$1 && Pipe$$1.prototype );
+  UpperBound.prototype.constructor = UpperBound;
+
+  UpperBound.prototype.event = function event (t, x) {
+    if (t < this.value) {
+      this.value = t;
+      this.sink.end(t);
+    }
+  };
+
+  UpperBound.prototype.end = function end () {};
+
+  UpperBound.prototype.dispose = function dispose () {
+    return this.disposable.dispose()
+  };
+
+  return UpperBound;
+}(Pipe));
+
+var Delay = function Delay (dt, source) {
+  this.dt = dt;
+  this.source = source;
+};
+
+Delay.prototype.run = function run (sink, scheduler) {
+  var delaySink = new DelaySink(this.dt, sink, scheduler);
+  return disposeBoth(delaySink, this.source.run(delaySink, scheduler))
+};
+
+var DelaySink = (function (Pipe$$1) {
+  function DelaySink (dt, sink, scheduler) {
+    Pipe$$1.call(this, sink);
+    this.dt = dt;
+    this.scheduler = scheduler;
+  }
+
+  if ( Pipe$$1 ) { DelaySink.__proto__ = Pipe$$1; }
+  DelaySink.prototype = Object.create( Pipe$$1 && Pipe$$1.prototype );
+  DelaySink.prototype.constructor = DelaySink;
+
+  DelaySink.prototype.dispose = function dispose () {
+    var this$1 = this;
+
+    this.scheduler.cancelAll(function (task) { return task.sink === this$1.sink; });
+  };
+
+  DelaySink.prototype.event = function event (t, x) {
+    this.scheduler.delay(this.dt, propagateEventTask$1(x, this.sink));
+  };
+
+  DelaySink.prototype.end = function end (t) {
+    this.scheduler.delay(this.dt, propagateEndTask(this.sink));
+  };
+
+  return DelaySink;
+}(Pipe));
 
 var Throttle = function Throttle (period, source) {
   this.period = period;
@@ -933,7 +1918,7 @@ var DebounceSink = function DebounceSink (dt, source, sink, scheduler) {
   this.timer = null;
 
   var sourceDisposable = source.run(this, scheduler);
-  this.disposable = all([this, sourceDisposable]);
+  this.disposable = disposeBoth(this, sourceDisposable);
 };
 
 DebounceSink.prototype.event = function event (t, x) {
@@ -942,15 +1927,15 @@ DebounceSink.prototype.event = function event (t, x) {
   this.timer = this.scheduler.delay(this.dt, propagateEventTask$1(x, this.sink));
 };
 
-DebounceSink.prototype.end = function end (t, x) {
+DebounceSink.prototype.end = function end (t) {
   if (this._clearTimer()) {
     this.sink.event(t, this.value);
-    this.value = void 0;
+    this.value = undefined;
   }
-  this.sink.end(t, x);
+  this.sink.end(t);
 };
 
-DebounceSink.prototype.error = function error$1 (t, x) {
+DebounceSink.prototype.error = function error (t, x) {
   this._clearTimer();
   this.sink.error(t, x);
 };
@@ -985,7 +1970,7 @@ var AwaitSink = function AwaitSink (sink, scheduler) {
 
   // Pre-create closures, to avoid creating them per event
   this._eventBound = function (x) { return this$1.sink.event(this$1.scheduler.now(), x); };
-  this._endBound = function (x) { return this$1.sink.end(this$1.scheduler.now(), x); };
+  this._endBound = function () { return this$1.sink.end(this$1.scheduler.now()); };
   this._errorBound = function (e) { return this$1.sink.error(this$1.scheduler.now(), e); };
 };
 
@@ -996,14 +1981,12 @@ AwaitSink.prototype.event = function event (t, promise) {
     .catch(this._errorBound);
 };
 
-AwaitSink.prototype.end = function end (t, x) {
-    var this$1 = this;
-
-  this.queue = this.queue.then(function () { return this$1._end(x); })
+AwaitSink.prototype.end = function end (t) {
+  this.queue = this.queue.then(this._endBound)
     .catch(this._errorBound);
 };
 
-AwaitSink.prototype.error = function error$1 (t, e) {
+AwaitSink.prototype.error = function error (t, e) {
     var this$1 = this;
 
   // Don't resolve error values, propagate directly
@@ -1013,10 +1996,6 @@ AwaitSink.prototype.error = function error$1 (t, e) {
 
 AwaitSink.prototype._event = function _event (promise) {
   return promise.then(this._eventBound)
-};
-
-AwaitSink.prototype._end = function _end (x) {
-  return Promise.resolve(x).then(this._endBound)
 };
 
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
@@ -1065,19 +2044,19 @@ function tryEvent (t, x, sink) {
   }
 }
 
-function tryEnd (t, x, sink) {
+function tryEnd (t, sink) {
   try {
-    sink.end(t, x);
+    sink.end(t);
   } catch (e) {
     sink.error(t, e);
   }
 }
 
-var ErrorSource = function ErrorSource (e) {
+var ErrorStream = function ErrorStream (e) {
   this.value = e;
 };
 
-ErrorSource.prototype.run = function run (sink, scheduler) {
+ErrorStream.prototype.run = function run (sink, scheduler) {
   return scheduler.asap(propagateErrorTask$1(this.value, sink))
 };
 
@@ -1101,11 +2080,11 @@ RecoverWithSink.prototype.event = function event (t, x) {
   tryEvent(t, x, this.sink);
 };
 
-RecoverWithSink.prototype.end = function end (t, x) {
-  tryEnd(t, x, this.sink);
+RecoverWithSink.prototype.end = function end (t) {
+  tryEnd(t, this.sink);
 };
 
-RecoverWithSink.prototype.error = function error$1 (t, e) {
+RecoverWithSink.prototype.error = function error (t, e) {
   var nextSink = this.sink.disable();
 
   tryDispose(t, this.disposable, this.sink);
@@ -1122,314 +2101,13 @@ RecoverWithSink.prototype._startNext = function _startNext (t, x, sink) {
 
 RecoverWithSink.prototype._continue = function _continue (f, x, sink) {
   var stream = f(x);
-  return stream.source.run(sink, this.scheduler)
+  return stream.run(sink, this.scheduler)
 };
 
 RecoverWithSink.prototype.dispose = function dispose () {
   return this.disposable.dispose()
 };
 
-/** @license MIT License (c) copyright 2010-2016 original author or authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-
-function ScheduledTask (delay, period, task, scheduler) {
-  this.time = delay;
-  this.period = period;
-  this.task = task;
-  this.scheduler = scheduler;
-  this.active = true;
-}
-
-ScheduledTask.prototype.run = function () {
-  return this.task.run(this.time)
-};
-
-ScheduledTask.prototype.error = function (e) {
-  return this.task.error(this.time, e)
-};
-
-ScheduledTask.prototype.dispose = function () {
-  this.scheduler.cancel(this);
-  return this.task.dispose()
-};
-
-/** @license MIT License (c) copyright 2010-2016 original author or authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-
-function defer (task) {
-  return Promise.resolve(task).then(runTask)
-}
-
-function runTask (task) {
-  try {
-    return task.run()
-  } catch (e) {
-    return task.error(e)
-  }
-}
-
-/** @license MIT License (c) copyright 2010-2016 original author or authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-
-var Scheduler = function Scheduler (timer, timeline) {
-  var this$1 = this;
-
-  this.timer = timer;
-  this.timeline = timeline;
-
-  this._timer = null;
-  this._nextArrival = Infinity;
-
-  this._runReadyTasksBound = function () { return this$1._runReadyTasks(this$1.now()); };
-};
-
-Scheduler.prototype.now = function now () {
-  return this.timer.now()
-};
-
-Scheduler.prototype.asap = function asap (task) {
-  return this.schedule(0, -1, task)
-};
-
-Scheduler.prototype.delay = function delay (delay$1, task) {
-  return this.schedule(delay$1, -1, task)
-};
-
-Scheduler.prototype.periodic = function periodic (period, task) {
-  return this.schedule(0, period, task)
-};
-
-Scheduler.prototype.schedule = function schedule (delay, period, task) {
-  var now = this.now();
-  var st = new ScheduledTask(now + Math.max(0, delay), period, task, this);
-
-  this.timeline.add(st);
-  this._scheduleNextRun(now);
-  return st
-};
-
-Scheduler.prototype.cancel = function cancel (task) {
-  task.active = false;
-  if (this.timeline.remove(task)) {
-    this._reschedule();
-  }
-};
-
-Scheduler.prototype.cancelAll = function cancelAll (f) {
-  this.timeline.removeAll(f);
-  this._reschedule();
-};
-
-Scheduler.prototype._reschedule = function _reschedule () {
-  if (this.timeline.isEmpty()) {
-    this._unschedule();
-  } else {
-    this._scheduleNextRun(this.now());
-  }
-};
-
-Scheduler.prototype._unschedule = function _unschedule () {
-  this.timer.clearTimer(this._timer);
-  this._timer = null;
-};
-
-Scheduler.prototype._scheduleNextRun = function _scheduleNextRun (now) { // eslint-disable-line complexity
-  if (this.timeline.isEmpty()) {
-    return
-  }
-
-  var nextArrival = this.timeline.nextArrival();
-
-  if (this._timer === null) {
-    this._scheduleNextArrival(nextArrival, now);
-  } else if (nextArrival < this._nextArrival) {
-    this._unschedule();
-    this._scheduleNextArrival(nextArrival, now);
-  }
-};
-
-Scheduler.prototype._scheduleNextArrival = function _scheduleNextArrival (nextArrival, now) {
-  this._nextArrival = nextArrival;
-  var delay = Math.max(0, nextArrival - now);
-  this._timer = this.timer.setTimer(this._runReadyTasksBound, delay);
-};
-
-Scheduler.prototype._runReadyTasks = function _runReadyTasks (now) {
-  this._timer = null;
-  this.timeline.runTasks(now, runTask);
-  this._scheduleNextRun(this.now());
-};
-
-/** @license MIT License (c) copyright 2010-2016 original author or authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-
-var Timeline = function Timeline () {
-  this.tasks = [];
-};
-
-Timeline.prototype.nextArrival = function nextArrival () {
-  return this.isEmpty() ? Infinity : this.tasks[0].time
-};
-
-Timeline.prototype.isEmpty = function isEmpty () {
-  return this.tasks.length === 0
-};
-
-Timeline.prototype.add = function add (st) {
-  insertByTime(st, this.tasks);
-};
-
-Timeline.prototype.remove = function remove$$1 (st) {
-  var i = binarySearch(st.time, this.tasks);
-
-  if (i >= 0 && i < this.tasks.length) {
-    var at = findIndex(st, this.tasks[i].events);
-    if (at >= 0) {
-      this.tasks[i].events.splice(at, 1);
-      return true
-    }
-  }
-
-  return false
-};
-
-Timeline.prototype.removeAll = function removeAll$$1 (f) {
-    var this$1 = this;
-
-  for (var i = 0; i < this.tasks.length; ++i) {
-    removeAllFrom(f, this$1.tasks[i]);
-  }
-};
-
-Timeline.prototype.runTasks = function runTasks (t, runTask) {
-    var this$1 = this;
-
-  var tasks = this.tasks;
-  var l = tasks.length;
-  var i = 0;
-
-  while (i < l && tasks[i].time <= t) {
-    ++i;
-  }
-
-  this.tasks = tasks.slice(i);
-
-  // Run all ready tasks
-  for (var j = 0; j < i; ++j) {
-    this$1.tasks = runReadyTasks(runTask, tasks[j].events, this$1.tasks);
-  }
-};
-
-function runReadyTasks (runTask, events, tasks) { // eslint-disable-line complexity
-  for (var i = 0; i < events.length; ++i) {
-    var task = events[i];
-
-    if (task.active) {
-      runTask(task);
-
-      // Reschedule periodic repeating tasks
-      // Check active again, since a task may have canceled itself
-      if (task.period >= 0 && task.active) {
-        task.time = task.time + task.period;
-        insertByTime(task, tasks);
-      }
-    }
-  }
-
-  return tasks
-}
-
-function insertByTime (task, timeslots) { // eslint-disable-line complexity
-  var l = timeslots.length;
-
-  if (l === 0) {
-    timeslots.push(newTimeslot(task.time, [task]));
-    return
-  }
-
-  var i = binarySearch(task.time, timeslots);
-
-  if (i >= l) {
-    timeslots.push(newTimeslot(task.time, [task]));
-  } else if (task.time === timeslots[i].time) {
-    timeslots[i].events.push(task);
-  } else {
-    timeslots.splice(i, 0, newTimeslot(task.time, [task]));
-  }
-}
-
-function removeAllFrom (f, timeslot) {
-  timeslot.events = removeAll(f, timeslot.events);
-}
-
-function binarySearch (t, sortedArray) { // eslint-disable-line complexity
-  var lo = 0;
-  var hi = sortedArray.length;
-  var mid, y;
-
-  while (lo < hi) {
-    mid = Math.floor((lo + hi) / 2);
-    y = sortedArray[mid];
-
-    if (t === y.time) {
-      return mid
-    } else if (t < y.time) {
-      hi = mid;
-    } else {
-      lo = mid + 1;
-    }
-  }
-  return hi
-}
-
-var newTimeslot = function (t, events) { return ({ time: t, events: events }); };
-
-/** @license MIT License (c) copyright 2010-2016 original author or authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-
-/*global setTimeout, clearTimeout*/
-
-var ClockTimer = function ClockTimer () {
-  this.now = Date.now;
-};
-
-ClockTimer.prototype.setTimer = function setTimer (f, dt) {
-  return dt <= 0 ? runAsap(f) : setTimeout(f, dt)
-};
-
-ClockTimer.prototype.clearTimer = function clearTimer (t) {
-  return t instanceof Asap ? t.cancel() : clearTimeout(t)
-};
-
-var Asap = function Asap (f) {
-  this.f = f;
-  this.active = true;
-};
-
-Asap.prototype.run = function run () {
-  return this.active && this.f()
-};
-
-Asap.prototype.error = function error$1 (e) {
-  throw e
-};
-
-Asap.prototype.cancel = function cancel () {
-  this.active = false;
-};
-
-function runAsap (f) {
-  var task = new Asap(f);
-  defer(task);
-  return task
-}
-
-/** @license MIT License (c) copyright 2016 original author or authors */
 // -----------------------------------------------------------------------
 // Observing
 
@@ -1446,111 +2124,246 @@ var tap$$1 = curry2(tap$1);
 
 var sample$$1 = curry3(sample$1);
 
-// -----------------------------------------------------------------------
-// Scheduler components
-
-// export the Scheduler components for third-party libraries
-var _newScheduler = function (timer, timeline) { return new Scheduler(timer, timeline); };
-
-var newTimeline = function () { return new Timeline(); };
-var newClockTimer = function () { return new ClockTimer(); };
-
-var newDefaultScheduler = function () { return _newScheduler(newClockTimer(), newTimeline()); };
-
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
 
-// Non-mutating array operations
+  // Non-mutating array operations
 
-// cons :: a -> [a] -> [a]
-// a with x prepended
-
-
-// append :: a -> [a] -> [a]
-// a with x appended
-
-
-// drop :: Int -> [a] -> [a]
-// drop first n elements
-
-
-// tail :: [a] -> [a]
-// drop head element
-
-
-// copy :: [a] -> [a]
-// duplicate a (shallow duplication)
-
-
-// map :: (a -> b) -> [a] -> [b]
-// transform each element with f
-
-
-// reduce :: (a -> b -> a) -> a -> [b] -> a
-// accumulate via left-fold
-
-
-// replace :: a -> Int -> [a]
-// replace element at index
-
-
-// remove :: Int -> [a] -> [a]
-// remove element at index
-
-
-// removeAll :: (a -> boolean) -> [a] -> [a]
-// remove all elements matching a predicate
-
-
-// findIndex :: a -> [a] -> Int
-// find index of x in a, from the left
-
-
-// isArrayLike :: * -> boolean
-// Return true iff x is array-like
-
-/** @license MIT License (c) copyright 2010-2016 original author or authors */
-
-// id :: a -> a
-
-
-// compose :: (b -> c) -> (a -> b) -> (a -> c)
-
-
-// apply :: (a -> b) -> a -> b
-
-
-// curry2 :: ((a, b) -> c) -> (a -> b -> c)
-function curry2$1 (f) {
-  function curried (a, b) {
-    switch (arguments.length) {
-      case 0: return curried
-      case 1: return function (b) { return f(a, b); }
-      default: return f(a, b)
+  // cons :: a -> [a] -> [a]
+  // a with x prepended
+  function cons (x, a) {
+    var l = a.length;
+    var b = new Array(l + 1);
+    b[0] = x;
+    for (var i = 0; i < l; ++i) {
+      b[i + 1] = a[i];
     }
+    return b
   }
-  return curried
-}
 
-// curry3 :: ((a, b, c) -> d) -> (a -> b -> c -> d)
-function curry3$1 (f) {
-  function curried (a, b, c) { // eslint-disable-line complexity
-    switch (arguments.length) {
-      case 0: return curried
-      case 1: return curry2$1(function (b, c) { return f(a, b, c); })
-      case 2: return function (c) { return f(a, b, c); }
-      default:return f(a, b, c)
+  // append :: a -> [a] -> [a]
+  // a with x appended
+  function append (x, a) {
+    var l = a.length;
+    var b = new Array(l + 1);
+    for (var i = 0; i < l; ++i) {
+      b[i] = a[i];
     }
+
+    b[l] = x;
+    return b
   }
-  return curried
-}
 
-// curry4 :: ((a, b, c, d) -> e) -> (a -> b -> c -> d -> e)
+  // drop :: Int -> [a] -> [a]
+  // drop first n elements
+  function drop$1 (n, a) { // eslint-disable-line complexity
+    if (n < 0) {
+      throw new TypeError('n must be >= 0')
+    }
 
-/** @license MIT License (c) copyright 2016 original author or authors */
+    var l = a.length;
+    if (n === 0 || l === 0) {
+      return a
+    }
+
+    if (n >= l) {
+      return []
+    }
+
+    return unsafeDrop$1(n, a, l - n)
+  }
+
+  // unsafeDrop :: Int -> [a] -> Int -> [a]
+  // Internal helper for drop
+  function unsafeDrop$1 (n, a, l) {
+    var b = new Array(l);
+    for (var i = 0; i < l; ++i) {
+      b[i] = a[n + i];
+    }
+    return b
+  }
+
+  // tail :: [a] -> [a]
+  // drop head element
+  function tail$1 (a) {
+    return drop$1(1, a)
+  }
+
+  // map :: (a -> b) -> [a] -> [b]
+  // transform each element with f
+  function map$1$1 (f, a) {
+    var l = a.length;
+    var b = new Array(l);
+    for (var i = 0; i < l; ++i) {
+      b[i] = f(a[i]);
+    }
+    return b
+  }
+
+  // reduce :: (a -> b -> a) -> a -> [b] -> a
+  // accumulate via left-fold
+  function reduce$1$1 (f, z, a) {
+    var r = z;
+    for (var i = 0, l = a.length; i < l; ++i) {
+      r = f(r, a[i], i);
+    }
+    return r
+  }
+
+  // replace :: a -> Int -> [a]
+  // replace element at index
+  function replace (x, i, a) { // eslint-disable-line complexity
+    if (i < 0) {
+      throw new TypeError('i must be >= 0')
+    }
+
+    var l = a.length;
+    var b = new Array(l);
+    for (var j = 0; j < l; ++j) {
+      b[j] = i === j ? x : a[j];
+    }
+    return b
+  }
+
+  // remove :: Int -> [a] -> [a]
+  // remove element at index
+  function remove (i, a) {  // eslint-disable-line complexity
+    if (i < 0) {
+      throw new TypeError('i must be >= 0')
+    }
+
+    var l = a.length;
+    if (l === 0 || i >= l) { // exit early if index beyond end of array
+      return a
+    }
+
+    if (l === 1) { // exit early if index in bounds and length === 1
+      return []
+    }
+
+    return unsafeRemove(i, a, l - 1)
+  }
+
+  // unsafeRemove :: Int -> [a] -> Int -> [a]
+  // Internal helper to remove element at index
+  function unsafeRemove (i, a, l) {
+    var b = new Array(l);
+    var j;
+    for (j = 0; j < i; ++j) {
+      b[j] = a[j];
+    }
+    for (j = i; j < l; ++j) {
+      b[j] = a[j + 1];
+    }
+
+    return b
+  }
+
+  // removeAll :: (a -> boolean) -> [a] -> [a]
+  // remove all elements matching a predicate
+  function removeAll (f, a) {
+    var l = a.length;
+    var b = new Array(l);
+    var j = 0;
+    for (var x, i = 0; i < l; ++i) {
+      x = a[i];
+      if (!f(x)) {
+        b[j] = x;
+        ++j;
+      }
+    }
+
+    b.length = j;
+    return b
+  }
+
+  // findIndex :: a -> [a] -> Int
+  // find index of x in a, from the left
+  function findIndex (x, a) {
+    for (var i = 0, l = a.length; i < l; ++i) {
+      if (x === a[i]) {
+        return i
+      }
+    }
+    return -1
+  }
+
+  // isArrayLike :: * -> boolean
+  // Return true iff x is array-like
+  function isArrayLike (x) {
+    return x != null && typeof x.length === 'number' && typeof x !== 'function'
+  }
 
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
 
-var Queue$1 = function Queue$1(capPow2) {
+  // id :: a -> a
+  var id$1 = function (x) { return x; };
+
+  // compose :: (b -> c) -> (a -> b) -> (a -> c)
+  var compose$1 = function (f, g) { return function (x) { return f(g(x)); }; };
+
+  // apply :: (a -> b) -> a -> b
+  var apply$1 = function (f, x) { return f(x); };
+
+  // curry2 :: ((a, b) -> c) -> (a -> b -> c)
+  function curry2$1 (f) {
+    function curried (a, b) {
+      switch (arguments.length) {
+        case 0: return curried
+        case 1: return function (b) { return f(a, b); }
+        default: return f(a, b)
+      }
+    }
+    return curried
+  }
+
+  // curry3 :: ((a, b, c) -> d) -> (a -> b -> c -> d)
+  function curry3$1 (f) {
+    function curried (a, b, c) { // eslint-disable-line complexity
+      switch (arguments.length) {
+        case 0: return curried
+        case 1: return curry2$1(function (b, c) { return f(a, b, c); })
+        case 2: return function (c) { return f(a, b, c); }
+        default:return f(a, b, c)
+      }
+    }
+    return curried
+  }
+
+// ------------------------------------------------------
+// Event helpers
+
+var mapWithTime = function (f, stream) { return new MapWithTimeStream(f, stream); };
+
+var MapWithTimeStream = function MapWithTimeStream (f, source) {
+  this.f = f;
+  this.source = source;
+};
+
+MapWithTimeStream.prototype.run = function run (sink, scheduler) {
+  return this.source.run(new MapWithTimeSink(this.f, sink), scheduler)
+};
+
+var MapWithTimeSink = function MapWithTimeSink (f, sink) {
+  this.f = f;
+  this.sink = sink;
+};
+
+MapWithTimeSink.prototype.event = function event (t, x) {
+  var f = this.f;
+  this.sink.event(t, f(t, x));
+};
+
+MapWithTimeSink.prototype.error = function error (t, e) {
+  this.sink.error(t, e);
+};
+
+MapWithTimeSink.prototype.end = function end (t) {
+  this.sink.end(t);
+};
+
+/** @license MIT License (c) copyright 2010-2016 original author or authors */
+
+var Queue$1 = function Queue (capPow2) {
   this._capacity = capPow2 || 32;
   this._length = 0;
   this._head = 0;
@@ -1596,58 +2409,26 @@ Queue$1.prototype._ensureCapacity = function _ensureCapacity (capacity) {
   var last = this._head + this._length;
 
   if (last > oldCapacity) {
-    copy$2$1(this, 0, this, oldCapacity, last & (oldCapacity - 1));
+    copy$2(this, 0, this, oldCapacity, last & (oldCapacity - 1));
   }
 };
 
-function copy$2$1 (src, srcIndex, dst, dstIndex, len) {
+function copy$2 (src, srcIndex, dst, dstIndex, len) {
   for (var j = 0; j < len; ++j) {
     dst[j + dstIndex] = src[j + srcIndex];
     src[j + srcIndex] = void 0;
   }
 }
 
-// ------------------------------------------------------
-// Event helpers
+var zip2 = function (f, s1, s2) { return new Zip2Stream(f, s1, s2); };
 
-var mapWithTimeE = function (f, stream) { return new stream.constructor(new MathWithTimeSource(f, stream.source)); };
-
-var MathWithTimeSource = function MathWithTimeSource (f, source) {
-  this.f = f;
-  this.source = source;
-};
-
-MathWithTimeSource.prototype.run = function run (sink, scheduler) {
-  return this.source.run(new MapWithTimeSink(this.f, sink), scheduler)
-};
-
-var MapWithTimeSink = function MapWithTimeSink (f, sink) {
-  this.f = f;
-  this.sink = sink;
-};
-
-MapWithTimeSink.prototype.event = function event (t, x) {
-  var f = this.f;
-  this.sink.event(t, f(t, x));
-};
-
-MapWithTimeSink.prototype.error = function error (t, e) {
-  this.sink.error(t, e);
-};
-
-MapWithTimeSink.prototype.end = function end (t, x) {
-  this.sink.end(t, x);
-};
-
-var zip2E = function (f, s1, s2) { return new s1.constructor(new Zip2Source(f, s1.source, s2.source)); };
-
-var Zip2Source = function Zip2Source(f, s1, s2) {
+var Zip2Stream = function Zip2Stream (f, s1, s2) {
   this.f = f;
   this.s1 = s1;
   this.s2 = s2;
 };
 
-Zip2Source.prototype.run = function run (sink, scheduler) {
+Zip2Stream.prototype.run = function run (sink, scheduler) {
   var state = { active: 2 };
   var q1 = new Queue$1();
   var q2 = new Queue$1();
@@ -1656,7 +2437,7 @@ Zip2Source.prototype.run = function run (sink, scheduler) {
   return new DisposeBoth(d1, d2)
 };
 
-var Zip2LSink = function Zip2LSink(f, values, other, state, sink) {
+var Zip2LSink = function Zip2LSink (f, values, other, state, sink) {
   this.f = f;
   this.values = values;
   this.other = other;
@@ -1672,9 +2453,9 @@ Zip2LSink.prototype.event = function event (t, x) {
   }
 };
 
-Zip2LSink.prototype.end = function end (t, x) {
+Zip2LSink.prototype.end = function end (t) {
   if (--this.state.active === 0) {
-    this.sink.end(t, x);
+    this.sink.end(t);
   }
 };
 
@@ -1688,8 +2469,8 @@ Zip2LSink.prototype._event = function _event (t, a) {
 };
 
 var Zip2RSink = (function (Zip2LSink) {
-  function Zip2RSink(f, values, other, state, sink) {
-    Zip2LSink.call(this, f, values, other, state, sink);
+  function Zip2RSink () {
+    Zip2LSink.apply(this, arguments);
   }
 
   if ( Zip2LSink ) Zip2RSink.__proto__ = Zip2LSink;
@@ -1710,18 +2491,18 @@ var DisposeBoth = function DisposeBoth (d1, d2) {
 };
 
 DisposeBoth.prototype.dispose = function dispose () {
-  return Promise.all([this.d1.dispose(), this.d2.dispose()])
+  this.d1.dispose();
+  this.d2.dispose();
 };
 
-
-var splitE = function (stream) {
-  var sp = new stream.constructor(new SplitSource(stream.source));
+var split = function (stream) {
+  var sp = new SplitStream(stream);
   return [sp, sp]
 };
 
 var nullSink = {
   event: function event (t, x) {},
-  end: function end (t, x) {},
+  end: function end (t) {},
   error: function error (t, x) {}
 };
 
@@ -1729,67 +2510,68 @@ var nullDisposable = {
   dispose: function dispose () {}
 };
 
-var SplitSource = function SplitSource (source) {
+var SplitDisposable = function SplitDisposable (source, sink) {
+  this.source = source;
+  this.sink = sink;
+};
+
+SplitDisposable.prototype.dispose = function dispose () {
+  if(this.sink === this.source.sink0) {
+    this.source.sink0 = this.source.sink1;
+    this.source.sink1 = nullSink;
+  } else {
+    this.source.sink1 = nullSink;
+  }
+
+  if (this.source.sink0 === nullSink) {
+    return this.source.disposable.dispose()
+  }
+};
+
+var SplitStream = function SplitStream (source) {
   this.source = source;
   this.sink0 = nullSink;
   this.sink1 = nullSink;
   this.disposable = nullDisposable;
 };
 
-SplitSource.prototype.run = function run (sink, scheduler) {
+SplitStream.prototype.run = function run (sink, scheduler) {
   if (this.sink0 === nullSink) {
     this.sink0 = sink;
     this.disposable = this.source.run(this, scheduler);
-    return {
-      source: this,
-      dispose: function dispose () {
-        this.source.sink0 = source.sink1;
-        this.source.sink1 = nullSink;
-        if(this.source.sink0 === nullSink) {
-          return this.source.disposable.dispose()
-        }
-      }
-    }
   } else if (this.sink1 === nullSink) {
     this.sink1 = sink;
-    return {
-      source: this,
-      dispose: function dispose () {
-        this.source.sink1 = nullSink;
-        if(this.source.sink0 === nullSink) {
-          return this.source.disposable.dispose()
-        }
-      }
-    }
   } else {
     throw new TypeError('> 2 observers')
   }
+
+  return new SplitDisposable(this, sink)
 };
 
-SplitSource.prototype._dispose = function _dispose () {
+SplitStream.prototype._dispose = function _dispose () {
   var disposable = this._disposable;
   this._disposable = nullDisposable;
   return disposable.dispose()
 };
 
-SplitSource.prototype.event = function event (time, value) {
+SplitStream.prototype.event = function event (time, value) {
   this.sink0.event(time, value);
   this.sink1.event(time, value);
 };
 
-SplitSource.prototype.end = function end (time, value) {
-  this.sink0.end(time, value);
-  this.sink1.end(time, value);
+SplitStream.prototype.end = function end (time) {
+  this.sink0.end(time);
+  this.sink1.end(time);
 };
 
-SplitSource.prototype.error = function error (time, err) {
+SplitStream.prototype.error = function error (time, err) {
   this.sink0.error(time, err);
   this.sink1.error(time, err);
 };
 
 // Possibly useful:
 // - accum :: a -> Event (a -> a) -> Behavior a
-//    accum :: (a -> b -> c) -> a -> Event b -> Behavior c
+// - accum :: (a -> b -> c) -> a -> Event b -> Behavior c
 // - count :: Event a -> Behavior number
 // - when :: Behavior bool -> Event a -> Event a
 
@@ -1800,13 +2582,13 @@ SplitSource.prototype.error = function error (time, err) {
 // sampled from the behavior
 var sample$$2 = curry2$1(function (event, behavior) { return behavior.sample(event); });
 
-// sample :: (a -> b -> c) -> Event a -> Behavior b -> Event c
+// snapshot :: (a -> b -> c) -> Event a -> Behavior b -> Event c
 // Apply a function to each event value and the behavior's
 // value, sampled at the time of the event.  Returns a new
 // event stream whose events occur at the same times as the
 // input event stream, and whose values are the result of
 // applying the function
-var snapshot = curry3$1(function (f, event, behavior) { return behavior.snapshot(f, event); });
+
 
 // Base Behavior typeclass
 // Implementations:
@@ -1819,12 +2601,13 @@ Behavior.prototype.sample = function sample$$2 (event) {
 };
 
 Behavior.prototype.snapshot = function snapshot (f, event) {
-  var ref = splitE(event);
+  var ref = split(event);
     var e1 = ref[0];
     var e2 = ref[1];
   return sample$$1(f, this.sample(e1), e2)
 };
 
+// always :: a -> Behavior a
 // A behavior whose value never varies
 var always = function (x) { return new Constant(x); };
 
@@ -1851,7 +2634,7 @@ var Constant = (function (Behavior) {
   return Constant;
 }(Behavior));
 
-// computed :: (Time -> a) -> b -> Behavior b
+// computed :: (Time -> a -> b) -> Behavior b
 // A behavior computed by applying a function to the
 // event occurrence times and values that are used to
 // sample it
@@ -1868,27 +2651,30 @@ var Computed = (function (Behavior) {
   Computed.prototype.constructor = Computed;
 
   Computed.prototype.sample = function sample$$2 (event) {
-    return mapWithTimeE(this.f, event)
+    return mapWithTime(this.f, event)
   };
 
   Computed.prototype.snapshot = function snapshot (g, event) {
     var f = this.f;
-    return mapWithTimeE(function (t, a) { return g(a, f(t, a)); }, event)
+    return mapWithTime(function (t, a) { return g(a, f(t, a)); }, event)
   };
 
   return Computed;
 }(Behavior));
 
+// time :: Behavior Time
 // A behavior whose value is the current time, as reported
 // by whatever scheduler is in use (not wall clock time)
 var time = computed(function (t, x) { return t; });
 
+// stepper :: a -> Event a -> Behavior a
 // A behavior that starts with an initial value, and then
 // changes discretely to the value of each update event.
 
 
 var snd = function (a, b) { return b; };
 
+// map :: (a -> b) -> Behavior a -> Behavior b
 // Transform the behavior's value at all points in time
 var map$$2 = curry2$1(function (f, behavior) { return new Map(f, behavior); });
 
@@ -1915,8 +2701,8 @@ var Map = (function (Behavior) {
   return Map;
 }(Behavior));
 
-// Apply a function to 2 Behaviors.  Effectively lifts a function
-// (a -> b) -> c to (Behavior a -> Behavior b) -> Behavior c
+// liftA2 :: (a -> b -> c) -> Behavior a -> Behavior a -> Behavior c
+// Apply a function to 2 Behaviors.  Effectively lifts a 2-arg function
 var liftA2 = curry3$1(function (f, b1, b2) { return new LiftA2(f, b1, b2); });
 
 var LiftA2 = (function (Behavior) {
@@ -1932,10 +2718,10 @@ var LiftA2 = (function (Behavior) {
   LiftA2.prototype.constructor = LiftA2;
 
   LiftA2.prototype.sample = function sample$$2 (event) {
-    var ref = splitE(event);
+    var ref = split(event);
     var e1 = ref[0];
     var e2 = ref[1];
-    return zip2E(this.f, this.b1.sample(e1), this.b2.sample(e2))
+    return zip2(this.f, this.b1.sample(e1), this.b2.sample(e2))
   };
 
   return LiftA2;
@@ -1945,164 +2731,13 @@ var LiftA2 = (function (Behavior) {
 /** @author Brian Cavalier */
 /** @author John Hann */
 
-function Stream$1 (source) {
+function Stream (source) {
   this.source = source;
 }
 
-/** @license MIT License (c) copyright 2010-2016 original author or authors */
-
-// Non-mutating array operations
-
-// cons :: a -> [a] -> [a]
-// a with x prepended
-function cons$1 (x, a) {
-  var l = a.length;
-  var b = new Array(l + 1);
-  b[0] = x;
-  for (var i = 0; i < l; ++i) {
-    b[i + 1] = a[i];
-  }
-  return b
-}
-
-// append :: a -> [a] -> [a]
-// a with x appended
-
-
-// drop :: Int -> [a] -> [a]
-// drop first n elements
-function drop$2 (n, a) { // eslint-disable-line complexity
-  if (n < 0) {
-    throw new TypeError('n must be >= 0')
-  }
-
-  var l = a.length;
-  if (n === 0 || l === 0) {
-    return a
-  }
-
-  if (n >= l) {
-    return []
-  }
-
-  return unsafeDrop$2(n, a, l - n)
-}
-
-// unsafeDrop :: Int -> [a] -> Int -> [a]
-// Internal helper for drop
-function unsafeDrop$2 (n, a, l) {
-  var b = new Array(l);
-  for (var i = 0; i < l; ++i) {
-    b[i] = a[n + i];
-  }
-  return b
-}
-
-// tail :: [a] -> [a]
-// drop head element
-function tail$2$1 (a) {
-  return drop$2(1, a)
-}
-
-// copy :: [a] -> [a]
-// duplicate a (shallow duplication)
-
-
-// map :: (a -> b) -> [a] -> [b]
-// transform each element with f
-function map$2$1 (f, a) {
-  var l = a.length;
-  var b = new Array(l);
-  for (var i = 0; i < l; ++i) {
-    b[i] = f(a[i]);
-  }
-  return b
-}
-
-// reduce :: (a -> b -> a) -> a -> [b] -> a
-// accumulate via left-fold
-function reduce$2 (f, z, a) {
-  var r = z;
-  for (var i = 0, l = a.length; i < l; ++i) {
-    r = f(r, a[i], i);
-  }
-  return r
-}
-
-// replace :: a -> Int -> [a]
-// replace element at index
-function replace$1 (x, i, a) { // eslint-disable-line complexity
-  if (i < 0) {
-    throw new TypeError('i must be >= 0')
-  }
-
-  var l = a.length;
-  var b = new Array(l);
-  for (var j = 0; j < l; ++j) {
-    b[j] = i === j ? x : a[j];
-  }
-  return b
-}
-
-// remove :: Int -> [a] -> [a]
-// remove element at index
-
-
-// removeAll :: (a -> boolean) -> [a] -> [a]
-// remove all elements matching a predicate
-function removeAll$2 (f, a) {
-  var l = a.length;
-  var b = new Array(l);
-  var j = 0;
-  for (var x = (void 0), i = 0; i < l; ++i) {
-    x = a[i];
-    if (!f(x)) {
-      b[j] = x;
-      ++j;
-    }
-  }
-
-  b.length = j;
-  return b
-}
-
-// findIndex :: a -> [a] -> Int
-// find index of x in a, from the left
-function findIndex$2 (x, a) {
-  for (var i = 0, l = a.length; i < l; ++i) {
-    if (x === a[i]) {
-      return i
-    }
-  }
-  return -1
-}
-
-// isArrayLike :: * -> boolean
-// Return true iff x is array-like
-function isArrayLike$1 (x) {
-  return x != null && typeof x.length === 'number' && typeof x !== 'function'
-}
-
-/** @license MIT License (c) copyright 2010-2016 original author or authors */
-
-// id :: a -> a
-var id$2 = function (x) { return x; };
-
-// compose :: (b -> c) -> (a -> b) -> (a -> c)
-var compose$2 = function (f, g) { return function (x) { return f(g(x)); }; };
-
-// apply :: (a -> b) -> a -> b
-var apply$2 = function (f, x) { return f(x); };
-
-// curry2 :: ((a, b) -> c) -> (a -> b -> c)
-
-
-// curry3 :: ((a, b, c) -> d) -> (a -> b -> c -> d)
-
-
-// curry4 :: ((a, b, c, d) -> e) -> (a -> b -> c -> d -> e)
-
-/** @license MIT License (c) copyright 2016 original author or authors */
+Stream.prototype.run = function (sink, scheduler) {
+  return this.source.run(sink, scheduler)
+};
 
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
 /** @author Brian Cavalier */
@@ -2168,15 +2803,15 @@ SettableDisposable$1.prototype.dispose = function () {
 /** @author Brian Cavalier */
 /** @author John Hann */
 
-function isPromise$1 (p) {
+function isPromise (p) {
   return p !== null && typeof p === 'object' && typeof p.then === 'function'
 }
 
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
 /** @author Brian Cavalier */
 /** @author John Hann */
-var map$3$1 = map$2$1;
-var identity = id$2;
+var map$2$1 = map$1$1;
+var identity = id$1;
 
 /**
  * Call disposable.dispose.  If it returns a promise, catch promise
@@ -2186,9 +2821,9 @@ var identity = id$2;
  * @param {{error: function}} sink
  * @return {*} result of disposable.dispose
  */
-function tryDispose$1 (t, disposable, sink) {
-  var result = disposeSafely$1(disposable);
-  return isPromise$1(result)
+function tryDispose$1$1 (t, disposable, sink) {
+  var result = disposeSafely(disposable);
+  return isPromise(result)
     ? result.catch(function (e) {
       sink.error(t, e);
     })
@@ -2202,8 +2837,8 @@ function tryDispose$1 (t, disposable, sink) {
  * @param {*?} data any data to be passed to disposer function
  * @return {Disposable}
  */
-function create$1 (dispose, data) {
-  return once$1(new Disposable$1(dispose, data))
+function create (dispose, data) {
+  return once(new Disposable$1(dispose, data))
 }
 
 /**
@@ -2211,7 +2846,7 @@ function create$1 (dispose, data) {
  * requirement when no actual resource needs to be disposed.
  * @return {Disposable|exports|module.exports}
  */
-function empty$1$1 () {
+function empty$2 () {
   return new Disposable$1(identity, void 0)
 }
 
@@ -2220,15 +2855,15 @@ function empty$1$1 () {
  * @param {Array<Disposable>} disposables
  * @return {Disposable}
  */
-function all$1 (disposables) {
-  return create$1(disposeAll$1, disposables)
+function all (disposables) {
+  return create(disposeAll$1, disposables)
 }
 
 function disposeAll$1 (disposables) {
-  return Promise.all(map$3$1(disposeSafely$1, disposables))
+  return Promise.all(map$2$1(disposeSafely, disposables))
 }
 
-function disposeSafely$1 (disposable) {
+function disposeSafely (disposable) {
   try {
     return disposable.dispose()
   } catch (e) {
@@ -2248,7 +2883,7 @@ function disposeSafely$1 (disposable) {
  * be set later.
  * @return {SettableDisposable}
  */
-function settable$1 () {
+function settable () {
   return new SettableDisposable$1()
 }
 
@@ -2258,14 +2893,14 @@ function settable$1 () {
  * @param {{ dispose: function() }} disposable
  * @return {Disposable} wrapped disposable
  */
-function once$1 (disposable) {
+function once (disposable) {
   return new Disposable$1(disposeMemoized, memoized(disposable))
 }
 
 function disposeMemoized (memoized) {
   if (!memoized.disposed) {
     memoized.disposed = true;
-    memoized.value = disposeSafely$1(memoized.disposable);
+    memoized.value = disposeSafely(memoized.disposable);
     memoized.disposable = void 0;
   }
 
@@ -2302,11 +2937,11 @@ PropagateTask$1.event = function (value, sink) {
 };
 
 PropagateTask$1.end = function (value, sink) {
-  return new PropagateTask$1(end$1, value, sink)
+  return new PropagateTask$1(end, value, sink)
 };
 
 PropagateTask$1.error = function (value, sink) {
-  return new PropagateTask$1(error$3, value, sink)
+  return new PropagateTask$1(error$2, value, sink)
 };
 
 PropagateTask$1.prototype.dispose = function () {
@@ -2327,7 +2962,7 @@ PropagateTask$1.prototype.error = function (t, e) {
   this.sink.error(t, e);
 };
 
-function error$3 (t, e, sink) {
+function error$2 (t, e, sink) {
   sink.error(t, e);
 }
 
@@ -2335,7 +2970,7 @@ function emit$1 (t, x, sink) {
   sink.event(t, x);
 }
 
-function end$1 (t, x, sink) {
+function end (t, x, sink) {
   sink.end(t, x);
 }
 
@@ -2349,7 +2984,7 @@ function end$1 (t, x, sink) {
  * @returns {Stream}
  */
 function of (x) {
-  return new Stream$1(new Just$1(x))
+  return new Stream(new Just$1(x))
 }
 
 function Just$1 (x) {
@@ -2369,24 +3004,24 @@ function runJust$1 (t, x, sink) {
  * Stream containing no events and ends immediately
  * @returns {Stream}
  */
-function empty$$1 () {
+function empty$1 () {
   return EMPTY$1
 }
 
-function EmptySource$1 () {}
+function EmptySource () {}
 
-EmptySource$1.prototype.run = function (sink, scheduler) {
+EmptySource.prototype.run = function (sink, scheduler) {
   var task = PropagateTask$1.end(void 0, sink);
   scheduler.asap(task);
 
-  return create$1(disposeEmpty$1, task)
+  return create(disposeEmpty, task)
 };
 
-function disposeEmpty$1 (task) {
+function disposeEmpty (task) {
   return task.dispose()
 }
 
-var EMPTY$1 = new Stream$1(new EmptySource$1());
+var EMPTY$1 = new Stream(new EmptySource());
 
 /**
  * Stream containing no events and never ends
@@ -2397,28 +3032,24 @@ var EMPTY$1 = new Stream$1(new EmptySource$1());
 /** @author Brian Cavalier */
 /** @author John Hann */
 
-function fromArray$1 (a) {
-  return new Stream$1(new ArraySource$1(a))
+function fromArray (a) {
+  return new Stream(new ArraySource(a))
 }
 
-function ArraySource$1 (a) {
+function ArraySource (a) {
   this.array = a;
 }
 
-ArraySource$1.prototype.run = function (sink, scheduler) {
-  return scheduler.asap(new PropagateTask$1(runProducer$1$1, this.array, sink))
+ArraySource.prototype.run = function (sink, scheduler) {
+  return scheduler.asap(new PropagateTask$1(runProducer, this.array, sink))
 };
 
-function runProducer$1$1 (t, array, sink) {
+function runProducer (t, array, sink) {
   for (var i = 0, l = array.length; i < l && this.active; ++i) {
     sink.event(t, array[i]);
   }
 
-  this.active && end(t);
-
-  function end (t) {
-    sink.end(t);
-  }
+  this.active && sink.end(t);
 }
 
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
@@ -2426,41 +3057,41 @@ function runProducer$1$1 (t, array, sink) {
 /** @author John Hann */
 
 /*global Set, Symbol*/
-var iteratorSymbol$1;
+var iteratorSymbol;
 // Firefox ships a partial implementation using the name @@iterator.
 // https://bugzilla.mozilla.org/show_bug.cgi?id=907077#c14
 if (typeof Set === 'function' && typeof new Set()['@@iterator'] === 'function') {
-  iteratorSymbol$1 = '@@iterator';
+  iteratorSymbol = '@@iterator';
 } else {
-  iteratorSymbol$1 = typeof Symbol === 'function' && Symbol.iterator ||
+  iteratorSymbol = typeof Symbol === 'function' && Symbol.iterator ||
   '_es6shim_iterator_';
 }
 
 function isIterable (o) {
-  return typeof o[iteratorSymbol$1] === 'function'
+  return typeof o[iteratorSymbol] === 'function'
 }
 
-function getIterator$1 (o) {
-  return o[iteratorSymbol$1]()
+function getIterator (o) {
+  return o[iteratorSymbol]()
 }
 
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
 /** @author Brian Cavalier */
 /** @author John Hann */
 
-function fromIterable$1 (iterable) {
-  return new Stream$1(new IterableSource$1(iterable))
+function fromIterable (iterable) {
+  return new Stream(new IterableSource(iterable))
 }
 
-function IterableSource$1 (iterable) {
+function IterableSource (iterable) {
   this.iterable = iterable;
 }
 
-IterableSource$1.prototype.run = function (sink, scheduler) {
-  return scheduler.asap(new PropagateTask$1(runProducer$2, getIterator$1(this.iterable), sink))
+IterableSource.prototype.run = function (sink, scheduler) {
+  return scheduler.asap(new PropagateTask$1(runProducer$1, getIterator(this.iterable), sink))
 };
 
-function runProducer$2 (t, iterator, sink) {
+function runProducer$1 (t, iterator, sink) {
   var r = iterator.next();
 
   while (!r.done && this.active) {
@@ -2551,7 +3182,7 @@ function tryEnd$1 (t, x, sink) {
 /** @author John Hann */
 
 function fromObservable (observable) {
-  return new Stream$1(new ObservableSource(observable))
+  return new Stream(new ObservableSource(observable))
 }
 
 function ObservableSource (observable) {
@@ -2561,9 +3192,9 @@ function ObservableSource (observable) {
 ObservableSource.prototype.run = function (sink, scheduler) {
   var sub = this.observable.subscribe(new SubscriberSink(sink, scheduler));
   if (typeof sub === 'function') {
-    return create$1(sub)
+    return create(sub)
   } else if (sub && typeof sub.unsubscribe === 'function') {
-    return create$1(unsubscribe, sub)
+    return create(unsubscribe, sub)
   }
 
   throw new TypeError('Observable returned invalid subscription ' + String(sub))
@@ -2595,7 +3226,7 @@ function unsubscribe (subscription) {
 /** @author John Hann */
 
 function from (a) { // eslint-disable-line complexity
-  if (a instanceof Stream$1) {
+  if (a instanceof Stream) {
     return a
   }
 
@@ -2604,12 +3235,12 @@ function from (a) { // eslint-disable-line complexity
     return fromObservable(observable)
   }
 
-  if (Array.isArray(a) || isArrayLike$1(a)) {
-    return fromArray$1(a)
+  if (Array.isArray(a) || isArrayLike(a)) {
+    return fromArray(a)
   }
 
   if (isIterable(a)) {
-    return fromIterable$1(a)
+    return fromIterable(a)
   }
 
   throw new TypeError('from(x) must be observable, iterable, or array-like: ' + a)
@@ -2630,7 +3261,7 @@ function from (a) { // eslint-disable-line complexity
 /** @author Brian Cavalier */
 /** @author John Hann */
 
-function ScheduledTask$1 (delay, period, task, scheduler) {
+function ScheduledTask (delay, period, task, scheduler) {
   this.time = delay;
   this.period = period;
   this.task = task;
@@ -2638,15 +3269,15 @@ function ScheduledTask$1 (delay, period, task, scheduler) {
   this.active = true;
 }
 
-ScheduledTask$1.prototype.run = function () {
+ScheduledTask.prototype.run = function () {
   return this.task.run(this.time)
 };
 
-ScheduledTask$1.prototype.error = function (e) {
+ScheduledTask.prototype.error = function (e) {
   return this.task.error(this.time, e)
 };
 
-ScheduledTask$1.prototype.dispose = function () {
+ScheduledTask.prototype.dispose = function () {
   this.scheduler.cancel(this);
   return this.task.dispose()
 };
@@ -2655,11 +3286,11 @@ ScheduledTask$1.prototype.dispose = function () {
 /** @author Brian Cavalier */
 /** @author John Hann */
 
-function defer$1 (task) {
-  return Promise.resolve(task).then(runTask$1)
+function defer (task) {
+  return Promise.resolve(task).then(runTask)
 }
 
-function runTask$1 (task) {
+function runTask (task) {
   try {
     return task.run()
   } catch (e) {
@@ -2671,7 +3302,7 @@ function runTask$1 (task) {
 /** @author Brian Cavalier */
 /** @author John Hann */
 
-function Scheduler$1 (timer, timeline) {
+function Scheduler (timer, timeline) {
   this.timer = timer;
   this.timeline = timeline;
 
@@ -2684,44 +3315,44 @@ function Scheduler$1 (timer, timeline) {
   };
 }
 
-Scheduler$1.prototype.now = function () {
+Scheduler.prototype.now = function () {
   return this.timer.now()
 };
 
-Scheduler$1.prototype.asap = function (task) {
+Scheduler.prototype.asap = function (task) {
   return this.schedule(0, -1, task)
 };
 
-Scheduler$1.prototype.delay = function (delay, task) {
+Scheduler.prototype.delay = function (delay, task) {
   return this.schedule(delay, -1, task)
 };
 
-Scheduler$1.prototype.periodic = function (period, task) {
+Scheduler.prototype.periodic = function (period, task) {
   return this.schedule(0, period, task)
 };
 
-Scheduler$1.prototype.schedule = function (delay, period, task) {
+Scheduler.prototype.schedule = function (delay, period, task) {
   var now = this.now();
-  var st = new ScheduledTask$1(now + Math.max(0, delay), period, task, this);
+  var st = new ScheduledTask(now + Math.max(0, delay), period, task, this);
 
   this.timeline.add(st);
   this._scheduleNextRun(now);
   return st
 };
 
-Scheduler$1.prototype.cancel = function (task) {
+Scheduler.prototype.cancel = function (task) {
   task.active = false;
   if (this.timeline.remove(task)) {
     this._reschedule();
   }
 };
 
-Scheduler$1.prototype.cancelAll = function (f) {
+Scheduler.prototype.cancelAll = function (f) {
   this.timeline.removeAll(f);
   this._reschedule();
 };
 
-Scheduler$1.prototype._reschedule = function () {
+Scheduler.prototype._reschedule = function () {
   if (this.timeline.isEmpty()) {
     this._unschedule();
   } else {
@@ -2729,12 +3360,12 @@ Scheduler$1.prototype._reschedule = function () {
   }
 };
 
-Scheduler$1.prototype._unschedule = function () {
+Scheduler.prototype._unschedule = function () {
   this.timer.clearTimer(this._timer);
   this._timer = null;
 };
 
-Scheduler$1.prototype._scheduleNextRun = function (now) { // eslint-disable-line complexity
+Scheduler.prototype._scheduleNextRun = function (now) { // eslint-disable-line complexity
   if (this.timeline.isEmpty()) {
     return
   }
@@ -2749,15 +3380,15 @@ Scheduler$1.prototype._scheduleNextRun = function (now) { // eslint-disable-line
   }
 };
 
-Scheduler$1.prototype._scheduleNextArrival = function (nextArrival, now) {
+Scheduler.prototype._scheduleNextArrival = function (nextArrival, now) {
   this._nextArrival = nextArrival;
   var delay = Math.max(0, nextArrival - now);
   this._timer = this.timer.setTimer(this._runReadyTasksBound, delay);
 };
 
-Scheduler$1.prototype._runReadyTasks = function (now) {
+Scheduler.prototype._runReadyTasks = function (now) {
   this._timer = null;
-  this.timeline.runTasks(now, runTask$1);
+  this.timeline.runTasks(now, runTask);
   this._scheduleNextRun(this.now());
 };
 
@@ -2767,38 +3398,38 @@ Scheduler$1.prototype._runReadyTasks = function (now) {
 
 /*global setTimeout, clearTimeout*/
 
-function ClockTimer$1 () {}
+function ClockTimer () {}
 
-ClockTimer$1.prototype.now = Date.now;
+ClockTimer.prototype.now = Date.now;
 
-ClockTimer$1.prototype.setTimer = function (f, dt) {
-  return dt <= 0 ? runAsap$1(f) : setTimeout(f, dt)
+ClockTimer.prototype.setTimer = function (f, dt) {
+  return dt <= 0 ? runAsap(f) : setTimeout(f, dt)
 };
 
-ClockTimer$1.prototype.clearTimer = function (t) {
-  return t instanceof Asap$1 ? t.cancel() : clearTimeout(t)
+ClockTimer.prototype.clearTimer = function (t) {
+  return t instanceof Asap ? t.cancel() : clearTimeout(t)
 };
 
-function Asap$1 (f) {
+function Asap (f) {
   this.f = f;
   this.active = true;
 }
 
-Asap$1.prototype.run = function () {
+Asap.prototype.run = function () {
   return this.active && this.f()
 };
 
-Asap$1.prototype.error = function (e) {
+Asap.prototype.error = function (e) {
   throw e
 };
 
-Asap$1.prototype.cancel = function () {
+Asap.prototype.cancel = function () {
   this.active = false;
 };
 
-function runAsap$1 (f) {
-  var task = new Asap$1(f);
-  defer$1(task);
+function runAsap (f) {
+  var task = new Asap(f);
+  defer(task);
   return task
 }
 
@@ -2806,27 +3437,27 @@ function runAsap$1 (f) {
 /** @author Brian Cavalier */
 /** @author John Hann */
 
-function Timeline$1 () {
+function Timeline () {
   this.tasks = [];
 }
 
-Timeline$1.prototype.nextArrival = function () {
+Timeline.prototype.nextArrival = function () {
   return this.isEmpty() ? Infinity : this.tasks[0].time
 };
 
-Timeline$1.prototype.isEmpty = function () {
+Timeline.prototype.isEmpty = function () {
   return this.tasks.length === 0
 };
 
-Timeline$1.prototype.add = function (st) {
-  insertByTime$1(st, this.tasks);
+Timeline.prototype.add = function (st) {
+  insertByTime(st, this.tasks);
 };
 
-Timeline$1.prototype.remove = function (st) {
-  var i = binarySearch$1(st.time, this.tasks);
+Timeline.prototype.remove = function (st) {
+  var i = binarySearch(st.time, this.tasks);
 
   if (i >= 0 && i < this.tasks.length) {
-    var at = findIndex$2(st, this.tasks[i].events);
+    var at = findIndex(st, this.tasks[i].events);
     if (at >= 0) {
       this.tasks[i].events.splice(at, 1);
       return true
@@ -2836,15 +3467,15 @@ Timeline$1.prototype.remove = function (st) {
   return false
 };
 
-Timeline$1.prototype.removeAll = function (f) {
+Timeline.prototype.removeAll = function (f) {
   var this$1 = this;
 
   for (var i = 0, l = this.tasks.length; i < l; ++i) {
-    removeAllFrom$1(f, this$1.tasks[i]);
+    removeAllFrom(f, this$1.tasks[i]);
   }
 };
 
-Timeline$1.prototype.runTasks = function (t, runTask) {
+Timeline.prototype.runTasks = function (t, runTask) {
   var this$1 = this;
 
   var tasks = this.tasks;
@@ -2859,11 +3490,11 @@ Timeline$1.prototype.runTasks = function (t, runTask) {
 
   // Run all ready tasks
   for (var j = 0; j < i; ++j) {
-    this$1.tasks = runTasks$1(runTask, tasks[j], this$1.tasks);
+    this$1.tasks = runTasks(runTask, tasks[j], this$1.tasks);
   }
 };
 
-function runTasks$1 (runTask, timeslot, tasks) { // eslint-disable-line complexity
+function runTasks (runTask, timeslot, tasks) { // eslint-disable-line complexity
   var events = timeslot.events;
   for (var i = 0; i < events.length; ++i) {
     var task = events[i];
@@ -2875,7 +3506,7 @@ function runTasks$1 (runTask, timeslot, tasks) { // eslint-disable-line complexi
       // Check active again, since a task may have canceled itself
       if (task.period >= 0 && task.active) {
         task.time = task.time + task.period;
-        insertByTime$1(task, tasks);
+        insertByTime(task, tasks);
       }
     }
   }
@@ -2883,30 +3514,30 @@ function runTasks$1 (runTask, timeslot, tasks) { // eslint-disable-line complexi
   return tasks
 }
 
-function insertByTime$1 (task, timeslots) { // eslint-disable-line complexity
+function insertByTime (task, timeslots) { // eslint-disable-line complexity
   var l = timeslots.length;
 
   if (l === 0) {
-    timeslots.push(newTimeslot$1(task.time, [task]));
+    timeslots.push(newTimeslot(task.time, [task]));
     return
   }
 
-  var i = binarySearch$1(task.time, timeslots);
+  var i = binarySearch(task.time, timeslots);
 
   if (i >= l) {
-    timeslots.push(newTimeslot$1(task.time, [task]));
+    timeslots.push(newTimeslot(task.time, [task]));
   } else if (task.time === timeslots[i].time) {
     timeslots[i].events.push(task);
   } else {
-    timeslots.splice(i, 0, newTimeslot$1(task.time, [task]));
+    timeslots.splice(i, 0, newTimeslot(task.time, [task]));
   }
 }
 
-function removeAllFrom$1 (f, timeslot) {
-  timeslot.events = removeAll$2(f, timeslot.events);
+function removeAllFrom (f, timeslot) {
+  timeslot.events = removeAll(f, timeslot.events);
 }
 
-function binarySearch$1 (t, sortedArray) { // eslint-disable-line complexity
+function binarySearch (t, sortedArray) { // eslint-disable-line complexity
   var lo = 0;
   var hi = sortedArray.length;
   var mid, y;
@@ -2926,7 +3557,7 @@ function binarySearch$1 (t, sortedArray) { // eslint-disable-line complexity
   return hi
 }
 
-function newTimeslot$1 (t, events) {
+function newTimeslot (t, events) {
   return { time: t, events: events }
 }
 
@@ -2934,7 +3565,7 @@ function newTimeslot$1 (t, events) {
 /** @author Brian Cavalier */
 /** @author John Hann */
 
-var defaultScheduler = new Scheduler$1(new ClockTimer$1(), new Timeline$1());
+var defaultScheduler = new Scheduler(new ClockTimer(), new Timeline());
 
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
 /** @author Brian Cavalier */
@@ -2945,7 +3576,7 @@ function subscribe (subscriber, stream) {
     throw new TypeError('subscriber must be an object')
   }
 
-  var disposable = settable$1();
+  var disposable = settable();
   var observer = new SubscribeObserver(fatalError$1, subscriber, disposable);
 
   disposable.setDisposable(stream.source.run(observer, defaultScheduler));
@@ -3041,12 +3672,12 @@ function withDefaultScheduler (source) {
 
 function withScheduler (source, scheduler) {
   return new Promise(function (resolve, reject) {
-    runSource$1(source, scheduler, resolve, reject);
+    runSource(source, scheduler, resolve, reject);
   })
 }
 
-function runSource$1 (source, scheduler, resolve, reject) {
-  var disposable = settable$1();
+function runSource (source, scheduler, resolve, reject) {
+  var disposable = settable();
   var observer = new Drain(resolve, reject, disposable);
 
   disposable.setDisposable(source.run(observer, scheduler));
@@ -3066,15 +3697,15 @@ Drain.prototype.end = function (t, x) {
     return
   }
   this.active = false;
-  disposeThen$1(this._end, this._error, this._disposable, x);
+  disposeThen(this._end, this._error, this._disposable, x);
 };
 
 Drain.prototype.error = function (t, e) {
   this.active = false;
-  disposeThen$1(this._error, this._error, this._disposable, e);
+  disposeThen(this._error, this._error, this._disposable, e);
 };
 
-function disposeThen$1 (end, error, disposable, x) {
+function disposeThen (end, error, disposable, x) {
   Promise.resolve(disposable.dispose()).then(function () {
     end(x);
   }, error);
@@ -3199,7 +3830,7 @@ function Map$2 (f, source) {
  */
 Map$2.create = function createMap (f, source) {
   if (source instanceof Map$2) {
-    return new Map$2(compose$2(f, source.f), source.source)
+    return new Map$2(compose$1(f, source.f), source.source)
   }
 
   if (source instanceof Filter$1) {
@@ -3236,8 +3867,8 @@ MapSink$1.prototype.event = function (t, x) {
  * @param {Stream} stream stream to map
  * @returns {Stream} stream containing items transformed by f
  */
-function map$4$1 (f, stream) {
-  return new Stream$1(Map$2.create(f, stream.source))
+function map$3 (f, stream) {
+  return new Stream(Map$2.create(f, stream.source))
 }
 
 /**
@@ -3247,7 +3878,7 @@ function map$4$1 (f, stream) {
 * @returns {Stream} stream containing items replaced with x
 */
 function constant (x, stream) {
-  return map$4$1(function () {
+  return map$3(function () {
     return x
   }, stream)
 }
@@ -3260,7 +3891,7 @@ function constant (x, stream) {
 * @returns {Stream} new stream containing the same items as this stream
 */
 function tap (f, stream) {
-  return new Stream$1(new Tap$1(f, stream.source))
+  return new Stream(new Tap$1(f, stream.source))
 }
 
 function Tap$1 (f, source) {
@@ -3328,7 +3959,7 @@ function drain (stream) {
  * returned by the stepper
  */
 function loop (stepper, seed, stream) {
-  return new Stream$1(new Loop$1(stepper, seed, stream.source))
+  return new Stream(new Loop$1(stepper, seed, stream.source))
 }
 
 function Loop$1 (stepper, seed, source) {
@@ -3372,7 +4003,7 @@ LoopSink$1.prototype.end = function (t) {
  * @returns {Stream} new stream containing successive reduce results
  */
 function scan (f, initial, stream) {
-  return new Stream$1(new Scan$1(f, initial, stream.source))
+  return new Stream(new Scan$1(f, initial, stream.source))
 }
 
 function Scan$1 (f, z, source) {
@@ -3384,7 +4015,7 @@ function Scan$1 (f, z, source) {
 Scan$1.prototype.run = function (sink, scheduler) {
   var d1 = scheduler.asap(PropagateTask$1.event(this.value, sink));
   var d2 = this.source.run(new ScanSink$1(this.f, this.value, sink), scheduler);
-  return all$1([d1, d2])
+  return all([d1, d2])
 };
 
 function ScanSink$1 (f, z, sink) {
@@ -3411,7 +4042,7 @@ ScanSink$1.prototype.end = Pipe$1.prototype.end;
 * @param {Stream} stream to reduce
 * @returns {Promise} promise for the file result of the reduce
 */
-function reduce$3 (f, initial, stream) {
+function reduce$2 (f, initial, stream) {
   return withDefaultScheduler(new Reduce(f, initial, stream.source))
 }
 
@@ -3486,7 +4117,7 @@ ReduceSink.prototype.end = function (t) {
 /** @author John Hann */
 
 function continueWith (f, stream) {
-  return new Stream$1(new ContinueWith$1(f, stream.source))
+  return new Stream(new ContinueWith$1(f, stream.source))
 }
 
 function ContinueWith$1 (f, source) {
@@ -3503,7 +4134,7 @@ function ContinueWithSink$1 (f, source, sink, scheduler) {
   this.sink = sink;
   this.scheduler = scheduler;
   this.active = true;
-  this.disposable = once$1(source.run(this, scheduler));
+  this.disposable = once(source.run(this, scheduler));
 }
 
 ContinueWithSink$1.prototype.error = Pipe$1.prototype.error;
@@ -3520,7 +4151,7 @@ ContinueWithSink$1.prototype.end = function (t, x) {
     return
   }
 
-  tryDispose$1(t, this.disposable, this.sink);
+  tryDispose$1$1(t, this.disposable, this.sink);
   this._startNext(t, x, this.sink);
 };
 
@@ -3550,7 +4181,7 @@ ContinueWithSink$1.prototype.dispose = function () {
  * @param {Stream} stream
  * @returns {Stream} new stream with x prepended
  */
-function cons$2 (x, stream) {
+function cons$1 (x, stream) {
   return concat(of(x), stream)
 }
 
@@ -3617,8 +4248,8 @@ function invoke$1 (f, args) {
 /** @author Brian Cavalier */
 /** @author John Hann */
 
-var map$5 = map$2$1;
-var tail$3 = tail$2$1;
+var map$4 = map$1$1;
+var tail$2 = tail$1;
 
 /**
  * Combine latest events from all input streams
@@ -3627,7 +4258,7 @@ var tail$3 = tail$2$1;
  *  event of each input stream, whenever a new event arrives on any stream.
  */
 function combine$1 (f /*, ...streams */) {
-  return combineArray(f, tail$3(arguments))
+  return combineArray(f, tail$2(arguments))
 }
 
 /**
@@ -3639,16 +4270,16 @@ function combine$1 (f /*, ...streams */) {
 */
 function combineArray (f, streams) {
   var l = streams.length;
-  return l === 0 ? empty$$1()
-  : l === 1 ? map$4$1(f, streams[0])
-  : new Stream$1(combineSources$1(f, streams))
+  return l === 0 ? empty$1()
+  : l === 1 ? map$3(f, streams[0])
+  : new Stream(combineSources(f, streams))
 }
 
-function combineSources$1 (f, streams) {
-  return new Combine$1(f, map$5(getSource$1$1, streams))
+function combineSources (f, streams) {
+  return new Combine$1(f, map$4(getSource, streams))
 }
 
-function getSource$1$1 (stream) {
+function getSource (stream) {
   return stream.source
 }
 
@@ -3671,7 +4302,7 @@ Combine$1.prototype.run = function (sink, scheduler) {
     disposables[i] = this$1.sources[i].run(indexSink, scheduler);
   }
 
-  return all$1(disposables)
+  return all(disposables)
 };
 
 function CombineSink$1 (disposables, sinks, sink, f) {
@@ -3716,7 +4347,7 @@ CombineSink$1.prototype._updateReady = function (index) {
 };
 
 CombineSink$1.prototype.end = function (t, indexedValue) {
-  tryDispose$1(t, this.disposables[indexedValue.index], this.sink);
+  tryDispose$1$1(t, this.disposables[indexedValue.index], this.sink);
   if (--this.activeCount === 0) {
     this.sink.end(t, indexedValue.value);
   }
@@ -3737,7 +4368,7 @@ CombineSink$1.prototype.end = function (t, indexedValue) {
  * @returns {Stream} stream containing all the applications of fs to xs
  */
 function ap (fs, xs) {
-  return combine$1(apply$2, fs, xs)
+  return combine$1(apply$1, fs, xs)
 }
 
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
@@ -3752,7 +4383,7 @@ function ap (fs, xs) {
  * @return {Stream} stream of events transformed by the transducer
  */
 function transduce (transducer, stream) {
-  return new Stream$1(new Transduce(transducer, stream.source))
+  return new Stream(new Transduce(transducer, stream.source))
 }
 
 function Transduce (transducer, source) {
@@ -3940,11 +4571,11 @@ LinkedList$1.prototype.dispose = function () {
 /** @author John Hann */
 
 function mergeConcurrently (concurrency, stream) {
-  return mergeMapConcurrently(id$2, concurrency, stream)
+  return mergeMapConcurrently(id$1, concurrency, stream)
 }
 
 function mergeMapConcurrently (f, concurrency, stream) {
-  return new Stream$1(new MergeConcurrently$1(f, concurrency, stream.source))
+  return new Stream(new MergeConcurrently$1(f, concurrency, stream.source))
 }
 
 function MergeConcurrently$1 (f, concurrency, source) {
@@ -3964,7 +4595,7 @@ function Outer$1 (f, concurrency, source, sink, scheduler) {
   this.scheduler = scheduler;
   this.pending = [];
   this.current = new LinkedList$1();
-  this.disposable = once$1(source.run(this, scheduler));
+  this.disposable = once(source.run(this, scheduler));
   this.active = true;
 }
 
@@ -4000,7 +4631,7 @@ function mapAndRun$1 (f, x, sink, scheduler) {
 
 Outer$1.prototype.end = function (t, x) {
   this.active = false;
-  tryDispose$1(t, this.disposable, this.sink);
+  tryDispose$1$1(t, this.disposable, this.sink);
   this._checkEnd(t, x);
 };
 
@@ -4017,7 +4648,7 @@ Outer$1.prototype.dispose = function () {
 
 Outer$1.prototype._endInner = function (t, x, inner) {
   this.current.remove(inner);
-  tryDispose$1(t, inner, this);
+  tryDispose$1$1(t, inner, this);
 
   if (this.pending.length === 0) {
     this._checkEnd(t, x);
@@ -4104,7 +4735,7 @@ function concatMap (f, stream) {
 /** @author Brian Cavalier */
 /** @author John Hann */
 
-var reduce$4 = reduce$2;
+var reduce$3 = reduce$1$1;
 
 /**
  * @returns {Stream} stream containing events from all streams in the argument
@@ -4121,9 +4752,9 @@ var reduce$4 = reduce$2;
  */
 function mergeArray$1 (streams) {
   var l = streams.length;
-  return l === 0 ? empty$$1()
+  return l === 0 ? empty$1()
     : l === 1 ? streams[0]
-    : new Stream$1(mergeSources$1(streams))
+    : new Stream(mergeSources(streams))
 }
 
 /**
@@ -4135,8 +4766,8 @@ function mergeArray$1 (streams) {
  * any nested Merge sources, in effect "flattening" nested
  * merge operations into a single merge.
  */
-function mergeSources$1 (streams) {
-  return new Merge$1(reduce$4(appendSources$1, [], streams))
+function mergeSources (streams) {
+  return new Merge$1(reduce$3(appendSources$1, [], streams))
 }
 
 function appendSources$1 (sources, stream) {
@@ -4164,7 +4795,7 @@ Merge$1.prototype.run = function (sink, scheduler) {
     disposables[i] = this$1.sources[i].run(indexSink, scheduler);
   }
 
-  return all$1(disposables)
+  return all(disposables)
 };
 
 function MergeSink$1 (disposables, sinks, sink) {
@@ -4180,7 +4811,7 @@ MergeSink$1.prototype.event = function (t, indexValue) {
 };
 
 MergeSink$1.prototype.end = function (t, indexedValue) {
-  tryDispose$1(t, this.disposables[indexedValue.index], this.sink);
+  tryDispose$1$1(t, this.disposables[indexedValue.index], this.sink);
   if (--this.activeCount === 0) {
     this.sink.end(t, indexedValue.value);
   }
@@ -4208,14 +4839,14 @@ MergeSink$1.prototype.end = function (t, indexedValue) {
  * @returns {Stream} sampled stream of values
  */
 function sampleWith (sampler, stream) {
-  return new Stream$1(new Sampler(id$2, sampler.source, [stream.source]))
+  return new Stream(new Sampler(id$1, sampler.source, [stream.source]))
 }
 
 function sampleArray (f, sampler, streams) {
-  return new Stream$1(new Sampler(f, sampler.source, map$2$1(getSource$2, streams)))
+  return new Stream(new Sampler(f, sampler.source, map$1$1(getSource$1, streams)))
 }
 
-function getSource$2 (stream) {
+function getSource$1 (stream) {
   return stream.source
 }
 
@@ -4241,7 +4872,7 @@ Sampler.prototype.run = function (sink, scheduler) {
 
   disposables[i] = this.sampler.run(sampleSink, scheduler);
 
-  return all$1(disposables)
+  return all(disposables)
 };
 
 function Hold (sink) {
@@ -4273,7 +4904,7 @@ SampleSink$1.prototype._notify = function () {
 
 SampleSink$1.prototype.event = function (t) {
   if (this.active) {
-    this.sink.event(t, invoke$1(this.f, map$2$1(getValue, this.sinks)));
+    this.sink.event(t, invoke$1(this.f, map$1$1(getValue, this.sinks)));
   }
 };
 
@@ -4340,11 +4971,11 @@ Queue$2.prototype._ensureCapacity = function (capacity) {
   var last = this._head + this._length;
 
   if (last > oldCapacity) {
-    copy$5(this, 0, this, oldCapacity, last & (oldCapacity - 1));
+    copy$4(this, 0, this, oldCapacity, last & (oldCapacity - 1));
   }
 };
 
-function copy$5 (src, srcIndex, dst, dstIndex, len) {
+function copy$4 (src, srcIndex, dst, dstIndex, len) {
   for (var j = 0; j < len; ++j) {
     dst[j + dstIndex] = src[j + srcIndex];
     src[j + srcIndex] = void 0;
@@ -4355,7 +4986,7 @@ function copy$5 (src, srcIndex, dst, dstIndex, len) {
 /** @author Brian Cavalier */
 /** @author John Hann */
 
-var map$6 = map$2$1;
+var map$5 = map$1$1;
 /**
  * Combine streams pairwise (or tuple-wise) by index by applying f to values
  * at corresponding indices.  The returned stream ends when any of the input
@@ -4376,12 +5007,12 @@ var map$6 = map$2$1;
 *  using f
 */
 function zipArray (f, streams) {
-  return streams.length === 0 ? empty$$1()
-: streams.length === 1 ? map$4$1(f, streams[0])
-: new Stream$1(new Zip$1(f, map$6(getSource$3, streams)))
+  return streams.length === 0 ? empty$1()
+: streams.length === 1 ? map$3(f, streams[0])
+: new Stream(new Zip$1(f, map$5(getSource$2, streams)))
 }
 
-function getSource$3 (stream) {
+function getSource$2 (stream) {
   return stream.source
 }
 
@@ -4406,7 +5037,7 @@ Zip$1.prototype.run = function (sink, scheduler) {
     disposables[i] = this$1.sources[i].run(indexSink, scheduler);
   }
 
-  return all$1(disposables)
+  return all(disposables)
 };
 
 function ZipSink$1 (f, buffers, sinks, sink) {
@@ -4445,7 +5076,7 @@ ZipSink$1.prototype.end = function (t, indexedValue) {
 ZipSink$1.prototype.error = Pipe$1.prototype.error;
 
 function emitZipped$1 (f, t, buffers, sink) {
-  sink.event(t, invoke$1(f, map$6(head$1, buffers)));
+  sink.event(t, invoke$1(f, map$5(head$1, buffers)));
 }
 
 function head$1 (buffer) {
@@ -4481,7 +5112,7 @@ function ready$1 (buffers) {
  * @returns {Stream} switching stream
  */
 function switchLatest$1 (stream) {
-  return new Stream$1(new Switch$1(stream.source))
+  return new Stream(new Switch$1(stream.source))
 }
 
 function Switch$1 (source) {
@@ -4490,7 +5121,7 @@ function Switch$1 (source) {
 
 Switch$1.prototype.run = function (sink, scheduler) {
   var switchSink = new SwitchSink$1(sink, scheduler);
-  return all$1([switchSink, this.source.run(switchSink, scheduler)])
+  return all([switchSink, this.source.run(switchSink, scheduler)])
 };
 
 function SwitchSink$1 (sink, scheduler) {
@@ -4554,7 +5185,7 @@ function Segment$1 (min, max, outer, sink) {
   this.max = max;
   this.outer = outer;
   this.sink = sink;
-  this.disposable = empty$1$1();
+  this.disposable = empty$2();
 }
 
 Segment$1.prototype.event = function (t, x) {
@@ -4573,7 +5204,7 @@ Segment$1.prototype.error = function (t, e) {
 
 Segment$1.prototype._dispose = function (t) {
   this.max = t;
-  tryDispose$1(t, this.disposable, this.sink);
+  tryDispose$1$1(t, this.disposable, this.sink);
 };
 
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
@@ -4587,7 +5218,7 @@ Segment$1.prototype._dispose = function (t) {
  * @returns {Stream} stream containing only items for which predicate returns truthy
  */
 function filter (p, stream) {
-  return new Stream$1(Filter$1.create(p, stream.source))
+  return new Stream(Filter$1.create(p, stream.source))
 }
 
 /**
@@ -4606,7 +5237,7 @@ function skipRepeats$1 (stream) {
  * @returns {Stream} stream without repeated events
  */
 function skipRepeatsWith (equals, stream) {
-  return new Stream$1(new SkipRepeats$1(equals, stream.source))
+  return new Stream(new SkipRepeats$1(equals, stream.source))
 }
 
 function SkipRepeats$1 (equals, source) {
@@ -4673,8 +5304,8 @@ function skip (n, stream) {
  * @returns {Stream} stream containing items where start <= index < end
  */
 function slice (start, end, stream) {
-  return end <= start ? empty$$1()
-    : new Stream$1(sliceSource$1(start, end, stream.source))
+  return end <= start ? empty$1()
+    : new Stream(sliceSource$1(start, end, stream.source))
 }
 
 function sliceSource$1 (start, end, source) {
@@ -4700,20 +5331,20 @@ function Slice$1 (min, max, source) {
 }
 
 Slice$1.prototype.run = function (sink, scheduler) {
-  return new SliceSink$1(this.min, this.max - this.min, this.source, sink, scheduler)
+  return this.source.run(new SliceSink$1(this.min, this.max - this.min, sink), scheduler)
 };
 
-function SliceSink$1 (skip, take, source, sink, scheduler) {
+function SliceSink$1 (skip, take, sink) {
   this.sink = sink;
   this.skip = skip;
   this.take = take;
-  this.disposable = once$1(source.run(this, scheduler));
 }
 
 SliceSink$1.prototype.end = Pipe$1.prototype.end;
 SliceSink$1.prototype.error = Pipe$1.prototype.error;
 
-SliceSink$1.prototype.event = function (t, x) { // eslint-disable-line complexity
+SliceSink$1.prototype.event = function (t, x) {
+  /* eslint complexity: [1, 4] */
   if (this.skip > 0) {
     this.skip -= 1;
     return
@@ -4726,17 +5357,12 @@ SliceSink$1.prototype.event = function (t, x) { // eslint-disable-line complexit
   this.take -= 1;
   this.sink.event(t, x);
   if (this.take === 0) {
-    this.dispose();
     this.sink.end(t, x);
   }
 };
 
-SliceSink$1.prototype.dispose = function () {
-  return this.disposable.dispose()
-};
-
 function takeWhile (p, stream) {
-  return new Stream$1(new TakeWhile$1(p, stream.source))
+  return new Stream(new TakeWhile$1(p, stream.source))
 }
 
 function TakeWhile$1 (p, source) {
@@ -4745,14 +5371,13 @@ function TakeWhile$1 (p, source) {
 }
 
 TakeWhile$1.prototype.run = function (sink, scheduler) {
-  return new TakeWhileSink$1(this.p, this.source, sink, scheduler)
+  return this.source.run(new TakeWhileSink$1(this.p, sink), scheduler)
 };
 
-function TakeWhileSink$1 (p, source, sink, scheduler) {
+function TakeWhileSink$1 (p, sink) {
   this.p = p;
   this.sink = sink;
   this.active = true;
-  this.disposable = once$1(source.run(this, scheduler));
 }
 
 TakeWhileSink$1.prototype.end = Pipe$1.prototype.end;
@@ -4768,17 +5393,12 @@ TakeWhileSink$1.prototype.event = function (t, x) {
   if (this.active) {
     this.sink.event(t, x);
   } else {
-    this.dispose();
     this.sink.end(t, x);
   }
 };
 
-TakeWhileSink$1.prototype.dispose = function () {
-  return this.disposable.dispose()
-};
-
 function skipWhile (p, stream) {
-  return new Stream$1(new SkipWhile$1(p, stream.source))
+  return new Stream(new SkipWhile$1(p, stream.source))
 }
 
 function SkipWhile$1 (p, source) {
@@ -4811,16 +5431,52 @@ SkipWhileSink$1.prototype.event = function (t, x) {
   this.sink.event(t, x);
 };
 
+function skipAfter (p, stream) {
+  return new Stream(new SkipAfter$1(p, stream.source))
+}
+
+function SkipAfter$1 (p, source) {
+  this.p = p;
+  this.source = source;
+}
+
+SkipAfter$1.prototype.run = function run (sink, scheduler) {
+  return this.source.run(new SkipAfterSink$1(this.p, sink), scheduler)
+};
+
+function SkipAfterSink$1 (p, sink) {
+  this.p = p;
+  this.sink = sink;
+  this.skipping = false;
+}
+
+SkipAfterSink$1.prototype.event = function event (t, x) {
+  if (this.skipping) {
+    return
+  }
+
+  var p = this.p;
+  this.skipping = p(x);
+  this.sink.event(t, x);
+
+  if (this.skipping) {
+    this.sink.end(t, x);
+  }
+};
+
+SkipAfterSink$1.prototype.end = Pipe$1.prototype.end;
+SkipAfterSink$1.prototype.error = Pipe$1.prototype.error;
+
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
 /** @author Brian Cavalier */
 /** @author John Hann */
 
 function takeUntil (signal, stream) {
-  return new Stream$1(new Until$1(signal.source, stream.source))
+  return new Stream(new Until$1(signal.source, stream.source))
 }
 
 function skipUntil (signal, stream) {
-  return new Stream$1(new Since$1(signal.source, stream.source))
+  return new Stream(new Since$1(signal.source, stream.source))
 }
 
 function during (timeWindow, stream) {
@@ -4837,7 +5493,7 @@ Until$1.prototype.run = function (sink, scheduler) {
   var max = new UpperBound$1(this.maxSignal, sink, scheduler);
   var disposable = this.source.run(new TimeWindowSink$1(min, max, sink), scheduler);
 
-  return all$1([min, max, disposable])
+  return all([min, max, disposable])
 };
 
 function Since$1 (minSignal, source) {
@@ -4850,7 +5506,7 @@ Since$1.prototype.run = function (sink, scheduler) {
   var max = new Bound$1(Infinity, sink);
   var disposable = this.source.run(new TimeWindowSink$1(min, max, sink), scheduler);
 
-  return all$1([min, max, disposable])
+  return all([min, max, disposable])
 };
 
 function Bound$1 (value, sink) {
@@ -4859,9 +5515,9 @@ function Bound$1 (value, sink) {
 }
 
 Bound$1.prototype.error = Pipe$1.prototype.error;
-Bound$1.prototype.event = noop$1;
-Bound$1.prototype.end = noop$1;
-Bound$1.prototype.dispose = noop$1;
+Bound$1.prototype.event = noop;
+Bound$1.prototype.end = noop;
+Bound$1.prototype.dispose = noop;
 
 function TimeWindowSink$1 (min, max, sink) {
   this.min = min;
@@ -4890,7 +5546,7 @@ LowerBound$1.prototype.event = function (t /*, x */) {
   }
 };
 
-LowerBound$1.prototype.end = noop$1;
+LowerBound$1.prototype.end = noop;
 LowerBound$1.prototype.error = Pipe$1.prototype.error;
 
 LowerBound$1.prototype.dispose = function () {
@@ -4910,14 +5566,14 @@ UpperBound$1.prototype.event = function (t, x) {
   }
 };
 
-UpperBound$1.prototype.end = noop$1;
+UpperBound$1.prototype.end = noop;
 UpperBound$1.prototype.error = Pipe$1.prototype.error;
 
 UpperBound$1.prototype.dispose = function () {
   return this.disposable.dispose()
 };
 
-function noop$1 () {}
+function noop () {}
 
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
 /** @author Brian Cavalier */
@@ -4928,9 +5584,9 @@ function noop$1 () {}
  * @param {Stream} stream
  * @returns {Stream} new stream containing the same items, but delayed by ms
  */
-function delay$1$1 (delayTime, stream) {
+function delay (delayTime, stream) {
   return delayTime <= 0 ? stream
-    : new Stream$1(new Delay$1(delayTime, stream.source))
+    : new Stream(new Delay$1(delayTime, stream.source))
 }
 
 function Delay$1 (dt, source) {
@@ -4940,7 +5596,7 @@ function Delay$1 (dt, source) {
 
 Delay$1.prototype.run = function (sink, scheduler) {
   var delaySink = new DelaySink$1(this.dt, sink, scheduler);
-  return all$1([delaySink, this.source.run(delaySink, scheduler)])
+  return all([delaySink, this.source.run(delaySink, scheduler)])
 };
 
 function DelaySink$1 (dt, sink, scheduler) {
@@ -4971,7 +5627,7 @@ DelaySink$1.prototype.error = Pipe$1.prototype.error;
 /** @author John Hann */
 
 function timestamp (stream) {
-  return new Stream$1(new Timestamp(stream.source))
+  return new Stream(new Timestamp(stream.source))
 }
 
 function Timestamp (source) {
@@ -5004,17 +5660,17 @@ TimestampSink.prototype.event = function (t, x) {
  * @returns {Stream}
  */
 function throttle (period, stream) {
-  return new Stream$1(throttleSource$1(period, stream.source))
+  return new Stream(throttleSource(period, stream.source))
 }
 
-function throttleSource$1 (period, source) {
+function throttleSource (period, source) {
   return source instanceof Map$2 ? commuteMapThrottle$1(period, source)
     : source instanceof Throttle$1 ? fuseThrottle$1(period, source)
     : new Throttle$1(period, source)
 }
 
 function commuteMapThrottle$1 (period, source) {
-  return Map$2.create(source.f, throttleSource$1(period, source.source))
+  return Map$2.create(source.f, throttleSource(period, source.source))
 }
 
 function fuseThrottle$1 (period, source) {
@@ -5055,7 +5711,7 @@ ThrottleSink$1.prototype.error = Pipe$1.prototype.error;
  * @returns {Stream} new debounced stream
  */
 function debounce (period, stream) {
-  return new Stream$1(new Debounce$1(period, stream.source))
+  return new Stream(new Debounce$1(period, stream.source))
 }
 
 function Debounce$1 (dt, source) {
@@ -5075,7 +5731,7 @@ function DebounceSink$1 (dt, source, sink, scheduler) {
   this.timer = null;
 
   var sourceDisposable = source.run(this, scheduler);
-  this.disposable = all$1([this, sourceDisposable]);
+  this.disposable = all([this, sourceDisposable]);
 }
 
 DebounceSink$1.prototype.event = function (t, x) {
@@ -5131,7 +5787,7 @@ DebounceSink$1.prototype._clearTimer = function () {
  * error if any promise rejects.
  */
 function awaitPromises$1 (stream) {
-  return new Stream$1(new Await$1(stream.source))
+  return new Stream(new Await$1(stream.source))
 }
 
 function Await$1 (source) {
@@ -5238,7 +5894,7 @@ SafeSink$1.prototype.disable = function () {
  * @returns {Stream} new stream which will recover from an error by calling f
  */
 function recoverWith (f, stream) {
-  return new Stream$1(new RecoverWith$1(f, stream.source))
+  return new Stream(new RecoverWith$1(f, stream.source))
 }
 
 var flatMapError = recoverWith;
@@ -5277,7 +5933,7 @@ RecoverWithSink$1.prototype.end = function (t, x) {
 RecoverWithSink$1.prototype.error = function (t, e) {
   var nextSink = this.sink.disable();
 
-  tryDispose$1(t, this.disposable, this.sink);
+  tryDispose$1$1(t, this.disposable, this.sink);
   this._startNext(t, e, nextSink);
 };
 
@@ -5298,131 +5954,13 @@ RecoverWithSink$1.prototype.dispose = function () {
   return this.disposable.dispose()
 };
 
-/** @license MIT License (c) copyright 2010-2016 original author or authors */
-
-// Non-mutating array operations
-
-// cons :: a -> [a] -> [a]
-// a with x prepended
-
-
-// append :: a -> [a] -> [a]
-// a with x appended
-function append$2 (x, a) {
-  var l = a.length;
-  var b = new Array(l + 1);
-  for (var i = 0; i < l; ++i) {
-    b[i] = a[i];
-  }
-
-  b[l] = x;
-  return b
-}
-
-// drop :: Int -> [a] -> [a]
-// drop first n elements
-
-
-// tail :: [a] -> [a]
-// drop head element
-
-
-// copy :: [a] -> [a]
-// duplicate a (shallow duplication)
-
-
-// map :: (a -> b) -> [a] -> [b]
-// transform each element with f
-
-
-// reduce :: (a -> b -> a) -> a -> [b] -> a
-// accumulate via left-fold
-
-
-// replace :: a -> Int -> [a]
-// replace element at index
-
-
-// remove :: Int -> [a] -> [a]
-// remove element at index
-function remove$2 (i, a) {  // eslint-disable-line complexity
-  if (i < 0) {
-    throw new TypeError('i must be >= 0')
-  }
-
-  var l = a.length;
-  if (l === 0 || i >= l) { // exit early if index beyond end of array
-    return a
-  }
-
-  if (l === 1) { // exit early if index in bounds and length === 1
-    return []
-  }
-
-  return unsafeRemove$2(i, a, l - 1)
-}
-
-// unsafeRemove :: Int -> [a] -> Int -> [a]
-// Internal helper to remove element at index
-function unsafeRemove$2 (i, a, l) {
-  var b = new Array(l);
-  var j;
-  for (j = 0; j < i; ++j) {
-    b[j] = a[j];
-  }
-  for (j = i; j < l; ++j) {
-    b[j] = a[j + 1];
-  }
-
-  return b
-}
-
-// removeAll :: (a -> boolean) -> [a] -> [a]
-// remove all elements matching a predicate
-
-
-// findIndex :: a -> [a] -> Int
-// find index of x in a, from the left
-function findIndex$3 (x, a) {
-  for (var i = 0, l = a.length; i < l; ++i) {
-    if (x === a[i]) {
-      return i
-    }
-  }
-  return -1
-}
-
-// isArrayLike :: * -> boolean
-// Return true iff x is array-like
-
-/** @license MIT License (c) copyright 2010-2016 original author or authors */
-
-// id :: a -> a
-
-
-// compose :: (b -> c) -> (a -> b) -> (a -> c)
-
-
-// apply :: (a -> b) -> a -> b
-
-
-// curry2 :: ((a, b) -> c) -> (a -> b -> c)
-
-
-// curry3 :: ((a, b, c) -> d) -> (a -> b -> c -> d)
-
-
-// curry4 :: ((a, b, c, d) -> e) -> (a -> b -> c -> d -> e)
-
-/** @license MIT License (c) copyright 2016 original author or authors */
-
 var MulticastDisposable = function MulticastDisposable (source, sink) {
   this.source = source;
   this.sink = sink;
   this.disposed = false;
 };
 
-MulticastDisposable.prototype.dispose = function dispose$1$1 () {
+MulticastDisposable.prototype.dispose = function dispose () {
   if (this.disposed) {
     return
   }
@@ -5447,7 +5985,7 @@ function tryEnd$2 (t, x, sink) {
   }
 }
 
-var dispose$1$1 = function (disposable) { return disposable.dispose(); };
+var dispose = function (disposable) { return disposable.dispose(); };
 
 var emptyDisposable = {
   dispose: function dispose$1 () {}
@@ -5470,19 +6008,19 @@ MulticastSource.prototype.run = function run (sink, scheduler) {
 MulticastSource.prototype._dispose = function _dispose () {
   var disposable = this._disposable;
   this._disposable = emptyDisposable;
-  return Promise.resolve(disposable).then(dispose$1$1)
+  return Promise.resolve(disposable).then(dispose)
 };
 
 MulticastSource.prototype.add = function add (sink) {
-  this.sinks = append$2(sink, this.sinks);
+  this.sinks = append(sink, this.sinks);
   return this.sinks.length
 };
 
 MulticastSource.prototype.remove = function remove$1 (sink) {
-  var i = findIndex$3(sink, this.sinks);
+  var i = findIndex(sink, this.sinks);
   // istanbul ignore next
   if (i >= 0) {
-    this.sinks = remove$2(i, this.sinks);
+    this.sinks = remove(i, this.sinks);
   }
 
   return this.sinks.length
@@ -5524,19 +6062,19 @@ function multicast (stream) {
 /** @author John Hann */
 
 // Add of and empty to constructor for fantasy-land compat
-Stream$1.of = of;
-Stream$1.empty = empty$$1;
+Stream.of = of;
+Stream.empty = empty$1;
 // Add from to constructor for ES Observable compat
-Stream$1.from = from;
+Stream.from = from;
 // -----------------------------------------------------------------------
 // Draft ES Observable proposal interop
 // https://github.com/zenparsing/es-observable
 
-Stream$1.prototype.subscribe = function (subscriber) {
+Stream.prototype.subscribe = function (subscriber) {
   return subscribe(subscriber, this)
 };
 
-Stream$1.prototype[result] = function () {
+Stream.prototype[result] = function () {
   return this
 };
 
@@ -5550,7 +6088,7 @@ Stream$1.prototype[result] = function () {
  * receives the stream itself and must return a new stream
  * @return {Stream}
  */
-Stream$1.prototype.thru = function (f) {
+Stream.prototype.thru = function (f) {
   return thru(f, this)
 };
 
@@ -5562,7 +6100,7 @@ Stream$1.prototype.thru = function (f) {
  * @returns {Promise} promise that fulfills when the stream ends, or rejects
  *  if the stream fails with an unhandled error.
  */
-Stream$1.prototype.observe = Stream$1.prototype.forEach = function (f) {
+Stream.prototype.observe = Stream.prototype.forEach = function (f) {
   return observe(f, this)
 };
 
@@ -5574,7 +6112,7 @@ Stream$1.prototype.observe = Stream$1.prototype.forEach = function (f) {
  * @returns {Promise} promise that fulfills when the stream ends, or rejects
  *  if the stream fails with an unhandled error.
  */
-Stream$1.prototype.drain = function () {
+Stream.prototype.drain = function () {
   return drain(this)
 };
 
@@ -5590,7 +6128,7 @@ Stream$1.prototype.drain = function () {
  * @returns {Stream} new stream whose values are the `value` field of the objects
  * returned by the stepper
  */
-Stream$1.prototype.loop = function (stepper, seed) {
+Stream.prototype.loop = function (stepper, seed) {
   return loop(stepper, seed, this)
 };
 
@@ -5603,7 +6141,7 @@ Stream$1.prototype.loop = function (stepper, seed) {
  * @param {*} initial initial value
  * @returns {Stream} new stream containing successive reduce results
  */
-Stream$1.prototype.scan = function (f, initial) {
+Stream.prototype.scan = function (f, initial) {
   return scan(f, initial, this)
 };
 
@@ -5615,8 +6153,8 @@ Stream$1.prototype.scan = function (f, initial) {
  * @param {*} initial optional initial value
  * @returns {Promise} promise for the file result of the reduce
  */
-Stream$1.prototype.reduce = function (f, initial) {
-  return reduce$3(f, initial, this)
+Stream.prototype.reduce = function (f, initial) {
+  return reduce$2(f, initial, this)
 };
 
 /**
@@ -5624,7 +6162,7 @@ Stream$1.prototype.reduce = function (f, initial) {
  * @returns {Stream} new stream containing all items in this followed by
  *  all items in tail
  */
-Stream$1.prototype.concat = function (tail$$1) {
+Stream.prototype.concat = function (tail$$1) {
   return concat(this, tail$$1)
 };
 
@@ -5632,8 +6170,8 @@ Stream$1.prototype.concat = function (tail$$1) {
  * @param {*} x value to prepend
  * @returns {Stream} a new stream with x prepended
  */
-Stream$1.prototype.startWith = function (x) {
-  return cons$2(x, this)
+Stream.prototype.startWith = function (x) {
+  return cons$1(x, this)
 };
 
 // -----------------------------------------------------------------------
@@ -5644,8 +6182,8 @@ Stream$1.prototype.startWith = function (x) {
  * @param {function(*):*} f mapping function
  * @returns {Stream} stream containing items transformed by f
  */
-Stream$1.prototype.map = function (f) {
-  return map$4$1(f, this)
+Stream.prototype.map = function (f) {
+  return map$3(f, this)
 };
 
 /**
@@ -5654,7 +6192,7 @@ Stream$1.prototype.map = function (f) {
  * @param {Stream} xs stream of items to which
  * @returns {Stream} stream containing the cross product of items
  */
-Stream$1.prototype.ap = function (xs) {
+Stream.prototype.ap = function (xs) {
   return ap(this, xs)
 };
 
@@ -5663,7 +6201,7 @@ Stream$1.prototype.ap = function (xs) {
  * @param {*} x
  * @returns {Stream} stream containing items replaced with x
  */
-Stream$1.prototype.constant = function (x) {
+Stream.prototype.constant = function (x) {
   return constant(x, this)
 };
 
@@ -5673,7 +6211,7 @@ Stream$1.prototype.constant = function (x) {
  *  return value will be discarded.
  * @returns {Stream} new stream containing the same items as this stream
  */
-Stream$1.prototype.tap = function (f) {
+Stream.prototype.tap = function (f) {
   return tap(f, this)
 };
 
@@ -5685,7 +6223,7 @@ Stream$1.prototype.tap = function (f) {
  * @param  {function} transducer transducer function
  * @return {Stream} stream of events transformed by the transducer
  */
-Stream$1.prototype.transduce = function (transducer) {
+Stream.prototype.transduce = function (transducer) {
   return transduce(transducer, this)
 };
 
@@ -5698,19 +6236,19 @@ Stream$1.prototype.transduce = function (transducer) {
  * @param {function(x:*):Stream} f chaining function, must return a Stream
  * @returns {Stream} new stream containing all events from each stream returned by f
  */
-Stream$1.prototype.chain = function (f) {
+Stream.prototype.chain = function (f) {
   return flatMap(f, this)
 };
 
 // @deprecated use chain instead
-Stream$1.prototype.flatMap = Stream$1.prototype.chain;
+Stream.prototype.flatMap = Stream.prototype.chain;
 
   /**
  * Monadic join. Flatten a Stream<Stream<X>> to Stream<X> by merging inner
  * streams to the outer. Event arrival times are preserved.
  * @returns {Stream<X>} new stream containing all events of all inner streams
  */
-Stream$1.prototype.join = function () {
+Stream.prototype.join = function () {
   return join$1(this)
 };
 
@@ -5721,14 +6259,14 @@ Stream$1.prototype.join = function () {
  * @returns {Stream} new stream that emits all events from the original stream,
  * followed by all events from the stream returned by f.
  */
-Stream$1.prototype.continueWith = function (f) {
+Stream.prototype.continueWith = function (f) {
   return continueWith(f, this)
 };
 
 // @deprecated use continueWith instead
-Stream$1.prototype.flatMapEnd = Stream$1.prototype.continueWith;
+Stream.prototype.flatMapEnd = Stream.prototype.continueWith;
 
-Stream$1.prototype.concatMap = function (f) {
+Stream.prototype.concatMap = function (f) {
   return concatMap(f, this)
 };
 
@@ -5744,7 +6282,7 @@ Stream$1.prototype.concatMap = function (f) {
  * @return {Stream<X>} new stream containing all events of all inner
  *  streams, with limited concurrency.
  */
-Stream$1.prototype.mergeConcurrently = function (concurrency) {
+Stream.prototype.mergeConcurrently = function (concurrency) {
   return mergeConcurrently(concurrency, this)
 };
 
@@ -5757,8 +6295,8 @@ Stream$1.prototype.mergeConcurrently = function (concurrency) {
  * order.  If two events are simultaneous they will be merged in
  * arbitrary order.
  */
-Stream$1.prototype.merge = function (/* ...streams*/) {
-  return mergeArray$1(cons$1(this, arguments))
+Stream.prototype.merge = function (/* ...streams*/) {
+  return mergeArray$1(cons(this, arguments))
 };
 
 // -----------------------------------------------------------------------
@@ -5770,8 +6308,8 @@ Stream$1.prototype.merge = function (/* ...streams*/) {
  * @returns {Stream} stream containing the result of applying f to the most recent
  *  event of each input stream, whenever a new event arrives on any stream.
  */
-Stream$1.prototype.combine = function (f /*, ...streams*/) {
-  return combineArray(f, replace$1(this, 0, arguments))
+Stream.prototype.combine = function (f /*, ...streams*/) {
+  return combineArray(f, replace(this, 0, arguments))
 };
 
 // -----------------------------------------------------------------------
@@ -5783,7 +6321,7 @@ Stream$1.prototype.combine = function (f /*, ...streams*/) {
  *  signal's latest value will be propagated
  * @returns {Stream} sampled stream of values
  */
-Stream$1.prototype.sampleWith = function (sampler) {
+Stream.prototype.sampleWith = function (sampler) {
   return sampleWith(sampler, this)
 };
 
@@ -5793,8 +6331,8 @@ Stream$1.prototype.sampleWith = function (sampler) {
  * @param {function(...values):*} f function to apply to each set of sampled values
  * @returns {Stream} stream of sampled and transformed values
  */
-Stream$1.prototype.sample = function (f /* ...streams */) {
-  return sampleArray(f, this, tail$2$1(arguments))
+Stream.prototype.sample = function (f /* ...streams */) {
+  return sampleArray(f, this, tail$1(arguments))
 };
 
 // -----------------------------------------------------------------------
@@ -5807,8 +6345,8 @@ Stream$1.prototype.sample = function (f /* ...streams */) {
  * @param {function(a:Stream, b:Stream, ...):*} f function to combine items
  * @returns {Stream} new stream containing pairs
  */
-Stream$1.prototype.zip = function (f /*, ...streams*/) {
-  return zipArray(f, replace$1(this, 0, arguments))
+Stream.prototype.zip = function (f /*, ...streams*/) {
+  return zipArray(f, replace(this, 0, arguments))
 };
 
 // -----------------------------------------------------------------------
@@ -5819,12 +6357,12 @@ Stream$1.prototype.zip = function (f /*, ...streams*/) {
  * of the most recent inner stream.
  * @returns {Stream} switching stream
  */
-Stream$1.prototype.switchLatest = function () {
+Stream.prototype.switchLatest = function () {
   return switchLatest$1(this)
 };
 
 // @deprecated use switchLatest instead
-Stream$1.prototype.switch = Stream$1.prototype.switchLatest;
+Stream.prototype.switch = Stream.prototype.switchLatest;
 
 // -----------------------------------------------------------------------
 // Filtering
@@ -5836,7 +6374,7 @@ Stream$1.prototype.switch = Stream$1.prototype.switchLatest;
  * @param {function(x:*):boolean} p filtering predicate called for each item
  * @returns {Stream} stream containing only items for which predicate returns truthy
  */
-Stream$1.prototype.filter = function (p) {
+Stream.prototype.filter = function (p) {
   return filter(p, this)
 };
 
@@ -5846,7 +6384,7 @@ Stream$1.prototype.filter = function (p) {
  * distinct(stream): -ab-cd-
  * @returns {Stream} stream with no repeated events
  */
-Stream$1.prototype.skipRepeats = function () {
+Stream.prototype.skipRepeats = function () {
   return skipRepeats$1(this)
 };
 
@@ -5855,7 +6393,7 @@ Stream$1.prototype.skipRepeats = function () {
  * @param {function(a:*, b:*):boolean} equals function to compare items
  * @returns {Stream} stream with no repeated events
  */
-Stream$1.prototype.skipRepeatsWith = function (equals) {
+Stream.prototype.skipRepeatsWith = function (equals) {
   return skipRepeatsWith(equals, this)
 };
 
@@ -5868,7 +6406,7 @@ Stream$1.prototype.skipRepeatsWith = function (equals) {
  * @param {Number} n take up to this many events
  * @returns {Stream} stream containing at most the first n items from this stream
  */
-Stream$1.prototype.take = function (n) {
+Stream.prototype.take = function (n) {
   return take(n, this)
 };
 
@@ -5878,7 +6416,7 @@ Stream$1.prototype.take = function (n) {
  * @param {Number} n skip this many events
  * @returns {Stream} stream not containing the first n events
  */
-Stream$1.prototype.skip = function (n) {
+Stream.prototype.skip = function (n) {
   return skip(n, this)
 };
 
@@ -5890,7 +6428,7 @@ Stream$1.prototype.skip = function (n) {
  * @param {Number} end allow all events from the start index to the end index
  * @returns {Stream} stream containing items where start <= index < end
  */
-Stream$1.prototype.slice = function (start, end) {
+Stream.prototype.slice = function (start, end) {
   return slice(start, end, this)
 };
 
@@ -5901,7 +6439,7 @@ Stream$1.prototype.slice = function (start, end) {
  * @returns {Stream} stream containing items up to, but not including, the
  * first item for which p returns falsy.
  */
-Stream$1.prototype.takeWhile = function (p) {
+Stream.prototype.takeWhile = function (p) {
   return takeWhile(p, this)
 };
 
@@ -5912,8 +6450,19 @@ Stream$1.prototype.takeWhile = function (p) {
  * @returns {Stream} stream containing items following *and including* the
  * first item for which p returns falsy.
  */
-Stream$1.prototype.skipWhile = function (p) {
+Stream.prototype.skipWhile = function (p) {
   return skipWhile(p, this)
+};
+
+/**
+ * stream:                         -123456789->
+ * skipAfter(x => x === 5, stream):-12345|
+ * @param {function(x:*):boolean} p predicate
+ * @returns {Stream} stream containing items up to, *and including*, the
+ * first item for which p returns truthy.
+ */
+Stream.prototype.skipAfter = function (p) {
+  return skipAfter(p, this)
 };
 
 // -----------------------------------------------------------------------
@@ -5928,12 +6477,12 @@ Stream$1.prototype.skipWhile = function (p) {
  * @returns {Stream} new stream containing only events that occur before
  * the first event in signal.
  */
-Stream$1.prototype.until = function (signal) {
+Stream.prototype.until = function (signal) {
   return takeUntil(signal, this)
 };
 
 // @deprecated use until instead
-Stream$1.prototype.takeUntil = Stream$1.prototype.until;
+Stream.prototype.takeUntil = Stream.prototype.until;
 
   /**
  * stream:                    -a-b-c-d-e-f-g->
@@ -5944,12 +6493,12 @@ Stream$1.prototype.takeUntil = Stream$1.prototype.until;
  * @returns {Stream} new stream containing only events that occur after
  * the first event in signal.
  */
-Stream$1.prototype.since = function (signal) {
+Stream.prototype.since = function (signal) {
   return skipUntil(signal, this)
 };
 
 // @deprecated use since instead
-Stream$1.prototype.skipUntil = Stream$1.prototype.since;
+Stream.prototype.skipUntil = Stream.prototype.since;
 
   /**
  * stream:                    -a-b-c-d-e-f-g->
@@ -5961,7 +6510,7 @@ Stream$1.prototype.skipUntil = Stream$1.prototype.since;
  *  represents the window end time
  * @returns {Stream} new stream containing only events within the provided timespan
  */
-Stream$1.prototype.during = function (timeWindow) {
+Stream.prototype.during = function (timeWindow) {
   return during(timeWindow, this)
 };
 
@@ -5972,8 +6521,8 @@ Stream$1.prototype.during = function (timeWindow) {
  * @param {Number} delayTime milliseconds to delay each item
  * @returns {Stream} new stream containing the same items, but delayed by ms
  */
-Stream$1.prototype.delay = function (delayTime) {
-  return delay$1$1(delayTime, this)
+Stream.prototype.delay = function (delayTime) {
+  return delay(delayTime, this)
 };
 
 // -----------------------------------------------------------------------
@@ -5984,7 +6533,7 @@ Stream$1.prototype.delay = function (delayTime) {
  * Stream<{time:t, value:X}>
  * @returns {Stream<{time:number, value:*}>}
  */
-Stream$1.prototype.timestamp = function () {
+Stream.prototype.timestamp = function () {
   return timestamp(this)
 };
 
@@ -5998,7 +6547,7 @@ Stream$1.prototype.timestamp = function () {
  * @param {Number} period time to suppress events
  * @returns {Stream} new stream that skips events for throttle period
  */
-Stream$1.prototype.throttle = function (period) {
+Stream.prototype.throttle = function (period) {
   return throttle(period, this)
 };
 
@@ -6010,7 +6559,7 @@ Stream$1.prototype.throttle = function (period) {
  *  on the provided scheduler will be suppressed
  * @returns {Stream} new debounced stream
  */
-Stream$1.prototype.debounce = function (period) {
+Stream.prototype.debounce = function (period) {
   return debounce(period, this)
 };
 
@@ -6022,12 +6571,12 @@ Stream$1.prototype.debounce = function (period) {
  * event order, but timeshifts events based on promise resolution time.
  * @returns {Stream<X>} stream containing non-promise values
  */
-Stream$1.prototype.awaitPromises = function () {
+Stream.prototype.awaitPromises = function () {
   return awaitPromises$1(this)
 };
 
 // @deprecated use awaitPromises instead
-Stream$1.prototype.await = Stream$1.prototype.awaitPromises;
+Stream.prototype.await = Stream.prototype.awaitPromises;
 
 // -----------------------------------------------------------------------
 // Error handling
@@ -6041,12 +6590,12 @@ Stream$1.prototype.await = Stream$1.prototype.awaitPromises;
  * @param {function(error:*):Stream} f function which returns a new stream
  * @returns {Stream} new stream which will recover from an error by calling f
  */
-Stream$1.prototype.recoverWith = function (f) {
+Stream.prototype.recoverWith = function (f) {
   return flatMapError(f, this)
 };
 
 // @deprecated use recoverWith instead
-Stream$1.prototype.flatMapError = Stream$1.prototype.recoverWith;
+Stream.prototype.flatMapError = Stream.prototype.recoverWith;
 
 // -----------------------------------------------------------------------
 // Multicasting
@@ -6056,7 +6605,7 @@ Stream$1.prototype.flatMapError = Stream$1.prototype.recoverWith;
  * to the stream will not cause multiple invocations of the internal machinery.
  * @returns {Stream} new stream which will multicast events to all observers.
  */
-Stream$1.prototype.multicast = function () {
+Stream.prototype.multicast = function () {
   return multicast(this)
 };
 
@@ -6069,7 +6618,7 @@ Stream$1.prototype.multicast = function () {
 var domEvent = function (event, node, capture) {
     if ( capture === void 0 ) { capture = false; }
 
-    return new Stream$1(new DomEvent(event, node, capture));
+    return new Stream(new DomEvent(event, node, capture));
 };
 
 var input = function (node, capture) {
@@ -6102,18 +6651,355 @@ function tryEvent$1 (t, x, sink) {
   }
 }
 
-var pipe = function (f, g) { return function (x) { return g(f(x)); }; };
-var byId = function (id) { return document.getElementById(id); };
+/** @license MIT License (c) copyright 2010-2016 original author or authors */
 
-var add$1 = function (x, y) { return x + y; };
+  // Non-mutating array operations
+
+  // cons :: a -> [a] -> [a]
+  // a with x prepended
+  // removeAll :: (a -> boolean) -> [a] -> [a]
+  // remove all elements matching a predicate
+  function removeAll$1 (f, a) {
+    var l = a.length;
+    var b = new Array(l);
+    var j = 0;
+    for (var x, i = 0; i < l; ++i) {
+      x = a[i];
+      if (!f(x)) {
+        b[j] = x;
+        ++j;
+      }
+    }
+
+    b.length = j;
+    return b
+  }
+
+  // findIndex :: a -> [a] -> Int
+  // find index of x in a, from the left
+  function findIndex$1 (x, a) {
+    for (var i = 0, l = a.length; i < l; ++i) {
+      if (x === a[i]) {
+        return i
+      }
+    }
+    return -1
+  }
+
+  /** @license MIT License (c) copyright 2010-2017 original author or authors */
+
+function ScheduledTask$1 (delay, period, task, scheduler) {
+  this.time = delay;
+  this.period = period;
+  this.task = task;
+  this.scheduler = scheduler;
+  this.active = true;
+}
+
+ScheduledTask$1.prototype.run = function () {
+  return this.task.run(this.time)
+};
+
+ScheduledTask$1.prototype.error = function (e) {
+  return this.task.error(this.time, e)
+};
+
+ScheduledTask$1.prototype.dispose = function () {
+  this.scheduler.cancel(this);
+  return this.task.dispose()
+};
+
+/** @license MIT License (c) copyright 2010-2017 original author or authors */
+
+var defer$1 = function (task) { return Promise.resolve(task).then(runTask$1); };
+
+function runTask$1 (task) {
+  try {
+    return task.run()
+  } catch (e) {
+    return task.error(e)
+  }
+}
+
+/** @license MIT License (c) copyright 2010-2017 original author or authors */
+
+var Scheduler$1 = function Scheduler (timer, timeline) {
+  var this$1 = this;
+
+  this.timer = timer;
+  this.timeline = timeline;
+
+  this._timer = null;
+  this._nextArrival = Infinity;
+
+  this._runReadyTasksBound = function () { return this$1._runReadyTasks(this$1.now()); };
+};
+
+Scheduler$1.prototype.now = function now () {
+  return this.timer.now()
+};
+
+Scheduler$1.prototype.asap = function asap (task) {
+  return this.schedule(0, -1, task)
+};
+
+Scheduler$1.prototype.delay = function delay (delay$1, task) {
+  return this.schedule(delay$1, -1, task)
+};
+
+Scheduler$1.prototype.periodic = function periodic (period, task) {
+  return this.schedule(0, period, task)
+};
+
+Scheduler$1.prototype.schedule = function schedule (delay, period, task) {
+  var now = this.now();
+  var st = new ScheduledTask$1(now + Math.max(0, delay), period, task, this);
+
+  this.timeline.add(st);
+  this._scheduleNextRun(now);
+  return st
+};
+
+Scheduler$1.prototype.cancel = function cancel (task) {
+  task.active = false;
+  if (this.timeline.remove(task)) {
+    this._reschedule();
+  }
+};
+
+Scheduler$1.prototype.cancelAll = function cancelAll (f) {
+  this.timeline.removeAll(f);
+  this._reschedule();
+};
+
+Scheduler$1.prototype._reschedule = function _reschedule () {
+  if (this.timeline.isEmpty()) {
+    this._unschedule();
+  } else {
+    this._scheduleNextRun(this.now());
+  }
+};
+
+Scheduler$1.prototype._unschedule = function _unschedule () {
+  this.timer.clearTimer(this._timer);
+  this._timer = null;
+};
+
+Scheduler$1.prototype._scheduleNextRun = function _scheduleNextRun (now) { // eslint-disable-line complexity
+  if (this.timeline.isEmpty()) {
+    return
+  }
+
+  var nextArrival = this.timeline.nextArrival();
+
+  if (this._timer === null) {
+    this._scheduleNextArrival(nextArrival, now);
+  } else if (nextArrival < this._nextArrival) {
+    this._unschedule();
+    this._scheduleNextArrival(nextArrival, now);
+  }
+};
+
+Scheduler$1.prototype._scheduleNextArrival = function _scheduleNextArrival (nextArrival, now) {
+  this._nextArrival = nextArrival;
+  var delay = Math.max(0, nextArrival - now);
+  this._timer = this.timer.setTimer(this._runReadyTasksBound, delay);
+};
+
+Scheduler$1.prototype._runReadyTasks = function _runReadyTasks (now) {
+  this._timer = null;
+  this.timeline.runTasks(now, runTask$1);
+  this._scheduleNextRun(this.now());
+};
+
+/** @license MIT License (c) copyright 2010-2017 original author or authors */
+
+var Timeline$1 = function Timeline () {
+  this.tasks = [];
+};
+
+Timeline$1.prototype.nextArrival = function nextArrival () {
+  return this.isEmpty() ? Infinity : this.tasks[0].time
+};
+
+Timeline$1.prototype.isEmpty = function isEmpty () {
+  return this.tasks.length === 0
+};
+
+Timeline$1.prototype.add = function add (st) {
+  insertByTime$1(st, this.tasks);
+};
+
+Timeline$1.prototype.remove = function remove$$1 (st) {
+  var i = binarySearch$1(st.time, this.tasks);
+
+  if (i >= 0 && i < this.tasks.length) {
+    var at = findIndex$1(st, this.tasks[i].events);
+    if (at >= 0) {
+      this.tasks[i].events.splice(at, 1);
+      return true
+    }
+  }
+
+  return false
+};
+
+Timeline$1.prototype.removeAll = function removeAll$$1 (f) {
+    var this$1 = this;
+
+  for (var i = 0; i < this.tasks.length; ++i) {
+    removeAllFrom$1(f, this$1.tasks[i]);
+  }
+};
+
+Timeline$1.prototype.runTasks = function runTasks (t, runTask) {
+    var this$1 = this;
+
+  var tasks = this.tasks;
+  var l = tasks.length;
+  var i = 0;
+
+  while (i < l && tasks[i].time <= t) {
+    ++i;
+  }
+
+  this.tasks = tasks.slice(i);
+
+  // Run all ready tasks
+  for (var j = 0; j < i; ++j) {
+    this$1.tasks = runReadyTasks(runTask, tasks[j].events, this$1.tasks);
+  }
+};
+
+function runReadyTasks (runTask, events, tasks) { // eslint-disable-line complexity
+  for (var i = 0; i < events.length; ++i) {
+    var task = events[i];
+
+    if (task.active) {
+      runTask(task);
+
+      // Reschedule periodic repeating tasks
+      // Check active again, since a task may have canceled itself
+      if (task.period >= 0 && task.active) {
+        task.time = task.time + task.period;
+        insertByTime$1(task, tasks);
+      }
+    }
+  }
+
+  return tasks
+}
+
+function insertByTime$1 (task, timeslots) { // eslint-disable-line complexity
+  var l = timeslots.length;
+
+  if (l === 0) {
+    timeslots.push(newTimeslot$1(task.time, [task]));
+    return
+  }
+
+  var i = binarySearch$1(task.time, timeslots);
+
+  if (i >= l) {
+    timeslots.push(newTimeslot$1(task.time, [task]));
+  } else if (task.time === timeslots[i].time) {
+    timeslots[i].events.push(task);
+  } else {
+    timeslots.splice(i, 0, newTimeslot$1(task.time, [task]));
+  }
+}
+
+function removeAllFrom$1 (f, timeslot) {
+  timeslot.events = removeAll$1(f, timeslot.events);
+}
+
+function binarySearch$1 (t, sortedArray) { // eslint-disable-line complexity
+  var lo = 0;
+  var hi = sortedArray.length;
+  var mid, y;
+
+  while (lo < hi) {
+    mid = Math.floor((lo + hi) / 2);
+    y = sortedArray[mid];
+
+    if (t === y.time) {
+      return mid
+    } else if (t < y.time) {
+      hi = mid;
+    } else {
+      lo = mid + 1;
+    }
+  }
+  return hi
+}
+
+var newTimeslot$1 = function (t, events) { return ({ time: t, events: events }); };
+
+/** @license MIT License (c) copyright 2010-2017 original author or authors */
+
+/*global setTimeout, clearTimeout*/
+
+var ClockTimer$1 = function ClockTimer () {
+  this.now = Date.now;
+};
+
+ClockTimer$1.prototype.setTimer = function setTimer (f, dt) {
+  return dt <= 0 ? runAsap$1(f) : setTimeout(f, dt)
+};
+
+ClockTimer$1.prototype.clearTimer = function clearTimer (t) {
+  return t instanceof Asap$1 ? t.cancel() : clearTimeout(t)
+};
+
+var Asap$1 = function Asap (f) {
+  this.f = f;
+  this.active = true;
+};
+
+Asap$1.prototype.run = function run () {
+  return this.active && this.f()
+};
+
+Asap$1.prototype.error = function error (e) {
+  throw e
+};
+
+Asap$1.prototype.cancel = function cancel () {
+  this.active = false;
+};
+
+function runAsap$1 (f) {
+  var task = new Asap$1(f);
+  defer$1(task);
+  return task
+}
+
+/** @license MIT License (c) copyright 2010-2017 original author or authors */
+
+var _newScheduler = function (timer, timeline) { return new Scheduler$1(timer, timeline); };
+
+var newTimeline = function () { return new Timeline$1(); };
+var newClockTimer = function () { return new ClockTimer$1(); };
+
+var newDefaultScheduler = function () { return _newScheduler(newClockTimer(), newTimeline()); };
+
+// @flow
+var pipe = function (f, g) { return function (x) { return g(f(x)); }; };
+var byId = function (id) {
+  var el = document.getElementById(id);
+  if(!el) { throw new Error(("#" + id + " not found")) }
+  return el
+};
+
+var add = function (x, y) { return x + y; };
 
 var numberValue = pipe(always, map$$2(pipe(function (input$$1) { return input$$1.value; }, Number)));
 
 var x = numberValue(byId('x'));
 var y = numberValue(byId('y'));
-var z = liftA2(add$1, x, y);
+var z = liftA2(add, x, y);
 
-var inputEvents = input(byId('container'));
+var inputEvents = input(byId('container')).source;
 
 var render = function (el) { return function (result) { return el.value = result; }; };
 var update = pipe(sample$$2(inputEvents), tap$$1(render(byId('z'))));
