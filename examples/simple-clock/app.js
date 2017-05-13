@@ -7079,7 +7079,7 @@ var render = function (el) { return function (date) { return el.innerText = (pad
 
 // We'll put the clock here
 var el = document.getElementById('app');
-// Flow thinks el may be null, so check
+// Since getElementById may return null, flow rigthly thinks el may be null
 if(!el) { throw new Error('#app element missing') }
 
 // Map button clicks to a periodic event stream we'll use to sample
