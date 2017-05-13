@@ -13,7 +13,7 @@ const x = numberValue(byId('x'))
 const y = numberValue(byId('y'))
 const z = liftA2(add, x, y)
 
-const inputEvents = input(byId('container'))
+const inputEvents = input(byId('container')).source
 
 const render = el => result => el.value = result
 const update = pipe(sample(inputEvents), tap(render(byId('z'))))

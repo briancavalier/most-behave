@@ -1,11 +1,11 @@
 // @flow
-import type { Stream as Event } from '@most/core'
+import type { Stream as Event } from '@most/types'
 
 type Time = number
 
 export type Behavior<A> = {
   sample (e: Event<any>): Event<A>,
-  snapshot <B, C> (f: (B, A) => C, eb: Event<B>): Event<C>
+  snapshot <B, C> (f: (A, B) => C, eb: Event<B>): Event<C>
 }
 
 declare export function sample <A, B> (ea: Event<A>, bb: Behavior<B>): Event<B>

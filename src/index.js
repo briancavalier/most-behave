@@ -1,10 +1,10 @@
 import { constant, map as mapE, startWith, sample as sampleE } from '@most/core'
 import { curry2, curry3 } from '@most/prelude'
-import { mapWithTimeE, zip2E, splitE } from './event'
+import { mapWithTime, zip2, split } from './event'
 
 // Possibly useful:
 // - accum :: a -> Event (a -> a) -> Behavior a
-//    accum :: (a -> b -> c) -> a -> Event b -> Behavior c
+// - accum :: (a -> b -> c) -> a -> Event b -> Behavior c
 // - count :: Event a -> Behavior number
 // - when :: Behavior bool -> Event a -> Event a
 
@@ -15,7 +15,7 @@ import { mapWithTimeE, zip2E, splitE } from './event'
 // sampled from the behavior
 export const sample = curry2((event, behavior) => behavior.sample(event))
 
-// sample :: (a -> b -> c) -> Event a -> Behavior b -> Event c
+// snapshot :: (a -> b -> c) -> Event a -> Behavior b -> Event c
 // Apply a function to each event value and the behavior's
 // value, sampled at the time of the event.  Returns a new
 // event stream whose events occur at the same times as the
@@ -33,11 +33,12 @@ class Behavior {
   }
 
   snapshot (f, event) {
-    const [e1, e2] = splitE(event)
+    const [e1, e2] = split(event)
     return sampleE(f, this.sample(e1), e2)
   }
 }
 
+// always :: a -> Behavior a
 // A behavior whose value never varies
 export const always = x => new Constant(x)
 
@@ -56,7 +57,7 @@ class Constant extends Behavior {
   }
 }
 
-// computed :: (Time -> a) -> b -> Behavior b
+// computed :: (Time -> a -> b) -> Behavior b
 // A behavior computed by applying a function to the
 // event occurrence times and values that are used to
 // sample it
@@ -69,19 +70,21 @@ class Computed extends Behavior {
   }
 
   sample (event) {
-    return mapWithTimeE(this.f, event)
+    return mapWithTime(this.f, event)
   }
 
   snapshot (g, event) {
     const f = this.f
-    return mapWithTimeE((t, a) => g(a, f(t, a)), event)
+    return mapWithTime((t, a) => g(a, f(t, a)), event)
   }
 }
 
+// time :: Behavior Time
 // A behavior whose value is the current time, as reported
 // by whatever scheduler is in use (not wall clock time)
 export const time = computed((t, x) => t)
 
+// stepper :: a -> Event a -> Behavior a
 // A behavior that starts with an initial value, and then
 // changes discretely to the value of each update event.
 export const stepper = curry2((initial, updateEvent) =>
@@ -104,6 +107,7 @@ class Stepper extends Behavior {
   }
 }
 
+// map :: (a -> b) -> Behavior a -> Behavior b
 // Transform the behavior's value at all points in time
 export const map = curry2((f, behavior) => new Map(f, behavior))
 
@@ -124,8 +128,8 @@ class Map extends Behavior {
   }
 }
 
-// Apply a function to 2 Behaviors.  Effectively lifts a function
-// (a -> b) -> c to (Behavior a -> Behavior b) -> Behavior c
+// liftA2 :: (a -> b -> c) -> Behavior a -> Behavior a -> Behavior c
+// Apply a function to 2 Behaviors.  Effectively lifts a 2-arg function
 export const liftA2 = curry3((f, b1, b2) => new LiftA2(f, b1, b2))
 
 class LiftA2 extends Behavior {
@@ -137,7 +141,7 @@ class LiftA2 extends Behavior {
   }
 
   sample (event) {
-    const [e1, e2] = splitE(event)
-    return zip2E(this.f, this.b1.sample(e1), this.b2.sample(e2))
+    const [e1, e2] = split(event)
+    return zip2(this.f, this.b1.sample(e1), this.b2.sample(e2))
   }
 }
