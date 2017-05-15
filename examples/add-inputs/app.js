@@ -2516,7 +2516,7 @@ var SplitDisposable = function SplitDisposable (source, sink) {
 };
 
 SplitDisposable.prototype.dispose = function dispose () {
-  if(this.sink === this.source.sink0) {
+  if (this.sink === this.source.sink0) {
     this.source.sink0 = this.source.sink1;
     this.source.sink1 = nullSink;
   } else {
@@ -2665,9 +2665,9 @@ var Computed = (function (Behavior) {
 // time :: Behavior Time
 // A behavior whose value is the current time, as reported
 // by whatever scheduler is in use (not wall clock time)
-var time = computed(function (t, x) { return t; });
+var time = computed(function (t, _) { return t; });
 
-// stepper :: a -> Event a -> Behavior a
+// step :: a -> Event a -> Behavior a
 // A behavior that starts with an initial value, and then
 // changes discretely to the value of each update event.
 
@@ -6984,26 +6984,40 @@ var newClockTimer = function () { return new ClockTimer$1(); };
 var newDefaultScheduler = function () { return _newScheduler(newClockTimer(), newTimeline()); };
 
 // @flow
-var pipe = function (f, g) { return function (x) { return g(f(x)); }; };
-var byId = function (id) {
-  var el = document.getElementById(id);
-  if(!el) { throw new Error(("#" + id + " not found")) }
+// inputById :: String -> HTMLInputElement
+// Type-safe helper to get an HTMLInputElement by id
+var inputById = function (id$$1) {
+  var el = document.getElementById(id$$1);
+  if(!(el instanceof HTMLInputElement)) { throw new Error(("input #" + id$$1 + " not found")) }
   return el
 };
 
+// numberValue :: HTMLInputElement -> Behavior Number
+var numberValue = compose$1(map$$2(function (input$$1) { return Number(input$$1.value); }), always);
+
+// add :: Number -> Number -> Number
 var add = function (x, y) { return x + y; };
 
-var numberValue = pipe(always, map$$2(pipe(function (input$$1) { return input$$1.value; }, Number)));
+// x :: Behavior Number
+var x = numberValue(inputById('x'));
 
-var x = numberValue(byId('x'));
-var y = numberValue(byId('y'));
+// y :: Behavior Number
+var y = numberValue(inputById('y'));
+
+// z :: Behavior Number
+// z is x + y at all points in time
 var z = liftA2(add, x, y);
 
-var inputEvents = input(byId('container')).source;
+// inputEvents :: Stream InputEvent
+var inputEvents = input(document.getElementById('container')).source;
 
-var render = function (el) { return function (result) { return el.value = result; }; };
-var update = pipe(sample$$2(inputEvents), tap$$1(render(byId('z'))));
+// render :: HTMLInputElement -> Number -> void
+var render = function (el) { return function (result) { return el.value = String(result); }; };
 
+// update :: HTMLInputElement -> Stream String
+var update = compose$1(tap$$1(render(inputById('z'))), sample$$2(inputEvents));
+
+// Run the app
 runEffects$$1(update(z), newDefaultScheduler());
 
 }());

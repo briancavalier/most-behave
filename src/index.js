@@ -82,24 +82,20 @@ class Computed extends Behavior {
 // time :: Behavior Time
 // A behavior whose value is the current time, as reported
 // by whatever scheduler is in use (not wall clock time)
-export const time = computed((t, x) => t)
+export const time = computed((t, _) => t)
 
-// stepper :: a -> Event a -> Behavior a
+// step :: a -> Event a -> Behavior a
 // A behavior that starts with an initial value, and then
 // changes discretely to the value of each update event.
-export const stepper = curry2((initial, updateEvent) =>
-  new Stepper(startWith(initial, updateEvent)))
+export const step = curry2((initial, updateEvent) =>
+  new Step(startWith(initial, updateEvent)))
 
 const snd = (a, b) => b
 
-class Stepper extends Behavior {
+class Step extends Behavior {
   constructor (updates) {
     super()
     this.updates = updates
-  }
-
-  sample (event) {
-    return this.snapshot(snd, event)
   }
 
   snapshot (f, event) {
