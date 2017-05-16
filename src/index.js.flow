@@ -1,29 +1,29 @@
 // @flow
-import type { Stream as Event } from '@most/types'
+import type { Stream } from '@most/types'
 
 type Time = number
 
 export type Behavior<A> = {
-  sample <B> (e: Event<B>): Event<A>,
-  snapshot <B, C> (f: (B, A) => C, eb: Event<B>): Event<C>
+  sample <B> (e: Stream<B>): Stream<A>,
+  snapshot <B, C> (f: (B, A) => C, eb: Stream<B>): Stream<C>
 }
 
-declare export function sample <A, B> (ea: Event<A>, bb: Behavior<B>): Event<B>
-declare export function sample <A, B> (ea: Event<A>): (bb: Behavior<B>) => Event<B>
+declare export function sample <A, B> (ea: Stream<A>, bb: Behavior<B>): Stream<B>
+declare export function sample <A, B> (ea: Stream<A>): (bb: Behavior<B>) => Stream<B>
 
-declare export function snapshot <A, B, C> (f: (A, B) => C, ea: Event<A>, bb: Behavior<B>): Event<C>
-declare export function snapshot <A, B, C> (f: (A, B) => C): (ea: Event<A>, bb: Behavior<B>) => Event<C>
-declare export function snapshot <A, B, C> (f: (A, B) => C, ea: Event<A>): (bb: Behavior<B>) => Event<C>
-declare export function snapshot <A, B, C> (f: (A, B) => C): (ea: Event<A>) => (bb: Behavior<B>) => Event<C>
+declare export function snapshot <A, B, C> (f: (A, B) => C, ea: Stream<A>, bb: Behavior<B>): Stream<C>
+declare export function snapshot <A, B, C> (f: (A, B) => C): (ea: Stream<A>, bb: Behavior<B>) => Stream<C>
+declare export function snapshot <A, B, C> (f: (A, B) => C, ea: Stream<A>): (bb: Behavior<B>) => Stream<C>
+declare export function snapshot <A, B, C> (f: (A, B) => C): (ea: Stream<A>) => (bb: Behavior<B>) => Stream<C>
 
 declare export function always <A> (a: A): Behavior<A>
 
-declare export function computed <A, B> (f: (Time, A) => B): Behavior<B>
+declare export function computed <A> (f: (Time) => A): Behavior<A>
 
 declare export var time: Behavior<Time>
 
-declare export function step <A> (a: A, ea: Event<A>): Behavior<A>
-declare export function step <A> (a: A): (ea: Event<A>) => Behavior<A>
+declare export function step <A> (a: A, ea: Stream<A>): Behavior<A>
+declare export function step <A> (a: A): (ea: Stream<A>) => Behavior<A>
 
 declare export function map <A, B> (f: (A) => B, ba: Behavior<A>): Behavior<B>
 declare export function map <A, B> (f: (A) => B): (ba: Behavior<A>) => Behavior<B>

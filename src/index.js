@@ -4,7 +4,7 @@ import { mapWithTime, zip2, split } from './event'
 
 // Possibly useful:
 // - accum :: a -> Event (a -> a) -> Behavior a
-// - accum :: (a -> b -> c) -> a -> Event b -> Behavior c
+// - accum :: (a -> b -> a) -> a -> Event b -> Behavior a
 // - count :: Event a -> Behavior number
 // - when :: Behavior bool -> Event a -> Event a
 
@@ -57,7 +57,7 @@ class Constant extends Behavior {
   }
 }
 
-// computed :: (Time -> a -> b) -> Behavior b
+// computed :: (Time -> a) -> Behavior a
 // A behavior computed by applying a function to the
 // event occurrence times and values that are used to
 // sample it
@@ -75,14 +75,14 @@ class Computed extends Behavior {
 
   snapshot (g, event) {
     const f = this.f
-    return mapWithTime((t, a) => g(a, f(t, a)), event)
+    return mapWithTime((t, a) => g(a, f(t)), event)
   }
 }
 
 // time :: Behavior Time
 // A behavior whose value is the current time, as reported
 // by whatever scheduler is in use (not wall clock time)
-export const time = computed((t, _) => t)
+export const time = computed(t => t)
 
 // step :: a -> Event a -> Behavior a
 // A behavior that starts with an initial value, and then
