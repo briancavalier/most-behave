@@ -50,3 +50,27 @@ Sample a Behavior's value at every occurrence of an Event Stream.
 ### snapshot :: (a &rarr; b &rarr; c) &rarr; Stream a &rarr; Behavior b &rarr; Stream c
 
 Sample a Behavior at every occurrence of an event, and compute a new event from the (event, sample) pair.
+
+## Potential APIs
+
+Potentially useful APIs we could add:
+
+### when :: Behavior bool &rarr; Stream a &rarr; Stream a
+
+Allow events only when a Behavior's value is `true`.
+
+### accum :: a &rarr; Stream (a &rarr; a) &rarr; Behavior a
+
+Create a Behavior with an initial value and an Event Stream carrying update functions.
+
+### accum :: (a &rarr; b &rarr; a) &rarr; a &rarr; Stream b &rarr; Behavior a
+
+Like scan, but produces a Behavior.
+
+### count :: Stream a &rarr; Behavior number
+
+Create a Behavior representing the number of event occurrences.
+
+### switch :: Behavior a &rarr; Stream (Behavior a) &rarr; Behavior a
+
+Create a Behavior that acts like an initial Behavior and switches to act like each new Behavior that occurs in the Event Stream.

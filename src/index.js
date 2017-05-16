@@ -2,12 +2,6 @@ import { constant, map as mapE, startWith, sample as sampleE } from '@most/core'
 import { curry2, curry3 } from '@most/prelude'
 import { mapWithTime, zip2, split } from './event'
 
-// Possibly useful:
-// - accum :: a -> Event (a -> a) -> Behavior a
-// - accum :: (a -> b -> a) -> a -> Event b -> Behavior a
-// - count :: Event a -> Behavior number
-// - when :: Behavior bool -> Event a -> Event a
-
 // sample :: Event a -> Behavior b -> Event b
 // Sample a behavior at all the event times
 // Returns a new event stream whose events occur at the same
