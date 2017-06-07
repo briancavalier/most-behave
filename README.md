@@ -4,6 +4,14 @@
 
 Continuous time-varying values for most.js.  Behaviors are the continuous complement to most.js discrete Event Streams, or, if you prefer, the "pull" complement to most.js "push" Event Streams.
 
+## Try it
+
+Feedback welcome via [gitter](https://gitter.im/cujojs/most), but seriously, don't use it for anything real yet.
+
+```
+npm i --save @briancavalier/most-behavior
+```
+
 ## Behavior
 
 A Behavior is a continuous value.  In contrast to an Event Stream which has discrete occurrences at particular instants in time, a Behavior's value is defined at all *real number* (not integer) values of time and may vary continuously (or not) over time.
