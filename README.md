@@ -27,6 +27,10 @@ For now, [see the examples dir](examples) for more realistic code, how to run a 
 
 ## API
 
+### time :: Behavior number
+
+A behavior that represents the current time in milliseconds since the application started.
+
 ### always :: a &rarr; Behavior a
 
 Create a Behavior whose value is always `a`.
