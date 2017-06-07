@@ -1,5 +1,5 @@
 {
-  "name": "@most/behave",
+  "name": "@briancavalier/most-behavior",
   "description": "behave",
   "version": "1.0.0",
   "author": "Brian Cavalier <brian@briancavalier.com> (github.com/briancavalier)",
@@ -30,7 +30,7 @@
   "files": [
     "dist"
   ],
-  "homepage": "https://github.com/mostjs/behave#readme",
+  "homepage": "https://github.com/briancavalier/most-behave#readme",
   "license": "MIT",
   "main": "dist/index.js",
   "module": "dist/index.es.js",
@@ -39,6 +39,7 @@
     "type": "git",
     "url": "https://github.com/briancavalier/most-behave.git"
   },
+  "typings": "type-definitions/index.d.ts",
   "scripts": {
     "build": "npm run build:dist",
     "build:dist": "mkdir -p dist && rollup -c && cpy src/index.js.flow dist && cpy src/index.js.flow dist --rename=index.es.js.flow",
@@ -50,9 +51,8 @@
     "prepublish": "npm run build"
   },
   "dependencies": {
-    "@most/core": "^0.6.0",
+    "@most/core": "^0.7.1",
     "@most/prelude": "^1.6.0",
-    "@most/scheduler": "^0.5.0",
     "@most/types": "^0.5.0"
   }
 }

@@ -51,42 +51,30 @@ class Constant extends Behavior {
   }
 }
 
-// computed :: (Time -> a) -> Behavior a
-// A behavior computed by applying a function to the
-// event occurrence times and values that are used to
-// sample it
-export const computed = f => new Computed(f)
-
-class Computed extends Behavior {
-  constructor (f) {
-    super()
-    this.f = f
-  }
-
+class Time extends Behavior {
   sample (event) {
-    return mapWithTime(this.f, event)
+    return mapWithTime((t, _) => t, event)
   }
 
   snapshot (g, event) {
-    const f = this.f
-    return mapWithTime((t, a) => g(a, f(t)), event)
+    return mapWithTime((t, a) => g(a, t), event)
   }
 }
 
 // time :: Behavior Time
 // A behavior whose value is the current time, as reported
 // by whatever scheduler is in use (not wall clock time)
-export const time = computed(t => t)
+export const time = new Time()
 
-// step :: a -> Event a -> Behavior a
+// fromStream :: a -> Event a -> Behavior a
 // A behavior that starts with an initial value, and then
 // changes discretely to the value of each update event.
-export const step = curry2((initial, updateEvent) =>
-  new Step(startWith(initial, updateEvent)))
+export const fromStream = curry2((initial, updateEvent) =>
+  new FromStream(startWith(initial, updateEvent)))
 
 const snd = (a, b) => b
 
-class Step extends Behavior {
+class FromStream extends Behavior {
   constructor (updates) {
     super()
     this.updates = updates

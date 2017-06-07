@@ -18,12 +18,10 @@ declare export function snapshot <A, B, C> (f: (A, B) => C): (ea: Stream<A>) => 
 
 declare export function always <A> (a: A): Behavior<A>
 
-declare export function computed <A> (f: (Time) => A): Behavior<A>
-
 declare export var time: Behavior<Time>
 
-declare export function step <A> (a: A, ea: Stream<A>): Behavior<A>
-declare export function step <A> (a: A): (ea: Stream<A>) => Behavior<A>
+declare export function fromStream <A> (a: A, ea: Stream<A>): Behavior<A>
+declare export function fromStream <A> (a: A): (ea: Stream<A>) => Behavior<A>
 
 declare export function map <A, B> (f: (A) => B, ba: Behavior<A>): Behavior<B>
 declare export function map <A, B> (f: (A) => B): (ba: Behavior<A>) => Behavior<B>

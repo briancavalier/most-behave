@@ -2623,12 +2623,6 @@ SplitStream.prototype.error = function error (time, err) {
   this.sink1.error(time, err);
 };
 
-// Possibly useful:
-// - accum :: a -> Event (a -> a) -> Behavior a
-// - accum :: (a -> b -> c) -> a -> Event b -> Behavior c
-// - count :: Event a -> Behavior number
-// - when :: Behavior bool -> Event a -> Event a
-
 // sample :: Event a -> Behavior b -> Event b
 // Sample a behavior at all the event times
 // Returns a new event stream whose events occur at the same
@@ -2665,40 +2659,32 @@ Behavior.prototype.snapshot = function snapshot (f, event) {
 // A behavior whose value never varies
 
 
-// computed :: (Time -> a -> b) -> Behavior b
-// A behavior computed by applying a function to the
-// event occurrence times and values that are used to
-// sample it
-var computed = function (f) { return new Computed(f); };
-
-var Computed = (function (Behavior) {
-  function Computed (f) {
-    Behavior.call(this);
-    this.f = f;
+var Time = (function (Behavior) {
+  function Time () {
+    Behavior.apply(this, arguments);
   }
 
-  if ( Behavior ) Computed.__proto__ = Behavior;
-  Computed.prototype = Object.create( Behavior && Behavior.prototype );
-  Computed.prototype.constructor = Computed;
+  if ( Behavior ) Time.__proto__ = Behavior;
+  Time.prototype = Object.create( Behavior && Behavior.prototype );
+  Time.prototype.constructor = Time;
 
-  Computed.prototype.sample = function sample$$2 (event) {
-    return mapWithTime(this.f, event)
+  Time.prototype.sample = function sample$$2 (event) {
+    return mapWithTime(function (t, _) { return t; }, event)
   };
 
-  Computed.prototype.snapshot = function snapshot (g, event) {
-    var f = this.f;
-    return mapWithTime(function (t, a) { return g(a, f(t, a)); }, event)
+  Time.prototype.snapshot = function snapshot (g, event) {
+    return mapWithTime(function (t, a) { return g(a, t); }, event)
   };
 
-  return Computed;
+  return Time;
 }(Behavior));
 
 // time :: Behavior Time
 // A behavior whose value is the current time, as reported
 // by whatever scheduler is in use (not wall clock time)
-var time = computed(function (t, _) { return t; });
+var time = new Time();
 
-// step :: a -> Event a -> Behavior a
+// fromStream :: a -> Event a -> Behavior a
 // A behavior that starts with an initial value, and then
 // changes discretely to the value of each update event.
 
@@ -2707,30 +2693,7 @@ var snd = function (a, b) { return b; };
 
 // map :: (a -> b) -> Behavior a -> Behavior b
 // Transform the behavior's value at all points in time
-var map$$2 = curry2$1(function (f, behavior) { return new Map(f, behavior); });
 
-var Map = (function (Behavior) {
-  function Map (f, behavior) {
-    Behavior.call(this);
-    this.f = f;
-    this.behavior = behavior;
-  }
-
-  if ( Behavior ) Map.__proto__ = Behavior;
-  Map.prototype = Object.create( Behavior && Behavior.prototype );
-  Map.prototype.constructor = Map;
-
-  Map.prototype.sample = function sample$$2 (event) {
-    return map$$1(this.f, this.behavior.sample(event))
-  };
-
-  Map.prototype.snapshot = function snapshot (g, event) {
-    var f = this.f;
-    return this.behavior.snapshot(function (a, b) { return g(a, f(b)); }, event)
-  };
-
-  return Map;
-}(Behavior));
 
 // liftA2 :: (a -> b -> c) -> Behavior a -> Behavior a -> Behavior c
 // Apply a function to 2 Behaviors.  Effectively lifts a 2-arg function
@@ -2915,7 +2878,7 @@ Timeline.prototype.add = function add (st) {
 };
 
 Timeline.prototype.remove = function remove$$1 (st) {
-  var i = binarySearch(st.time, this.tasks);
+  var i = binarySearch(getTime(st), this.tasks);
 
   if (i >= 0 && i < this.tasks.length) {
     var at = findIndex$1(st, this.tasks[i].events);
@@ -2974,23 +2937,52 @@ function runReadyTasks (runTask, events, tasks) { // eslint-disable-line complex
   return tasks
 }
 
-function insertByTime (task, timeslots) { // eslint-disable-line complexity
+function insertByTime (task, timeslots) {
   var l = timeslots.length;
+  var time = getTime(task);
 
   if (l === 0) {
-    timeslots.push(newTimeslot(task.time, [task]));
+    timeslots.push(newTimeslot(time, [task]));
     return
   }
 
-  var i = binarySearch(task.time, timeslots);
+  var i = binarySearch(time, timeslots);
 
   if (i >= l) {
-    timeslots.push(newTimeslot(task.time, [task]));
-  } else if (task.time === timeslots[i].time) {
-    timeslots[i].events.push(task);
+    timeslots.push(newTimeslot(time, [task]));
   } else {
-    timeslots.splice(i, 0, newTimeslot(task.time, [task]));
+    insertAtTimeslot(task, timeslots, time, i);
   }
+}
+
+function insertAtTimeslot (task, timeslots, time, i) {
+  var timeslot = timeslots[i];
+  if (time === timeslot.time) {
+    addEvent(task, timeslot.events, time);
+  } else {
+    timeslots.splice(i, 0, newTimeslot(time, [task]));
+  }
+}
+
+function addEvent (task, events) {
+  if (events.length === 0 || task.time >= events[events.length - 1].time) {
+    events.push(task);
+  } else {
+    spliceEvent(task, events);
+  }
+}
+
+function spliceEvent (task, events) {
+  for (var j = 0; j < events.length; j++) {
+    if (task.time < events[j].time) {
+      events.splice(j, 0, task);
+      break
+    }
+  }
+}
+
+function getTime (scheduledTask) {
+  return Math.floor(scheduledTask.time)
 }
 
 function removeAllFrom (f, timeslot) {
@@ -3023,8 +3015,12 @@ var newTimeslot = function (t, events) { return ({ time: t, events: events }); }
 
 /*global setTimeout, clearTimeout*/
 
-var ClockTimer = function ClockTimer () {
-  this.now = Date.now;
+var ClockTimer = function ClockTimer (clock) {
+  this._clock = clock;
+};
+
+ClockTimer.prototype.now = function now () {
+  return this._clock.now()
 };
 
 ClockTimer.prototype.setTimer = function setTimer (f, dt) {
@@ -3060,12 +3056,48 @@ function runAsap (f) {
 
 /** @license MIT License (c) copyright 2010-2017 original author or authors */
 
-var _newScheduler = function (timer, timeline) { return new Scheduler(timer, timeline); };
+/*global performance, process*/
 
-var newTimeline = function () { return new Timeline(); };
-var newClockTimer = function () { return new ClockTimer(); };
+var RelativeClock = function RelativeClock (clock, origin) {
+  this.origin = origin;
+  this.clock = clock;
+};
 
-var newDefaultScheduler = function () { return _newScheduler(newClockTimer(), newTimeline()); };
+RelativeClock.prototype.now = function now () {
+  return this.clock.now() - this.origin
+};
+
+var HRTimeClock = function HRTimeClock (hrtime, origin) {
+  this.origin = origin;
+  this.hrtime = hrtime;
+};
+
+HRTimeClock.prototype.now = function now () {
+  var hrt = this.hrtime(this.origin);
+  return (hrt[0] * 1e9 + hrt[1]) / 1e6
+};
+
+var clockRelativeTo = function (clock) { return new RelativeClock(clock, clock.now()); };
+
+var newPerformanceClock = function () { return clockRelativeTo(performance); };
+
+var newDateClock = function () { return clockRelativeTo(Date); };
+
+var newHRTimeClock = function () { return new HRTimeClock(process.hrtime, process.hrtime()); };
+
+var newPlatformClock = function () {
+  if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+    return newPerformanceClock()
+  } else if (typeof process !== 'undefined' && typeof process.hrtime === 'function') {
+    return newHRTimeClock()
+  }
+
+  return newDateClock()
+};
+
+var newDefaultScheduler = function () { return new Scheduler(newDefaultTimer(), new Timeline()); };
+
+var newDefaultTimer = function () { return new ClockTimer(newPlatformClock()); };
 
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
 /** @author Brian Cavalier */
@@ -3912,7 +3944,7 @@ var defaultScheduler = new Scheduler$1(new ClockTimer$1(), new Timeline$1());
 /** @author John Hann */
 
 function subscribe (subscriber, stream) {
-  if (subscriber == null || typeof subscriber !== 'object') {
+  if (Object(subscriber) !== subscriber) {
     throw new TypeError('subscriber must be an object')
   }
 
@@ -6997,9 +7029,7 @@ var matches = function (selector) { return function (e) { return e.target.matche
 var getValue = function (e) { return e.target.value; };
 
 // Formatting
-var toDate = function (ms) { return new Date(ms); };
-var pad = function (n) { return n < 10 ? ("0" + (Math.floor(n))) : ("" + (Math.floor(n))); };
-var render = function (el) { return function (date) { return el.innerText = (pad(date.getHours())) + ":" + (pad(date.getMinutes())) + ":" + (pad(date.getSeconds())) + ":" + (pad(date.getMilliseconds()/10)); }; };
+var render = function (el) { return function (ms) { return el.innerText = "" + ((ms / 1000).toFixed(3)); }; };
 
 // We'll put the clock here
 var el = document.getElementById('app');
@@ -7008,10 +7038,10 @@ if(!el) { throw new Error('#app element missing') }
 
 // Map button clicks to a periodic event stream we'll use to sample
 // the current time
-var clicks = filter$$1(matches('button'), click(document).source);
+var clicks = filter$$1(matches('button'), click(document));
 var sampler = switchLatest(map$$1(periodic, startWith$$1(1000, map$$1(Number, map$$1(getValue, clicks)))));
 
 // Sample time at some interval and display it
-runEffects$$1(tap$$1(render(el), sample$$2(sampler, map$$2(toDate, time))), newDefaultScheduler());
+runEffects$$1(tap$$1(render(el), sample$$2(sampler, time)), newDefaultScheduler());
 
 }());

@@ -2569,12 +2569,6 @@ SplitStream.prototype.error = function error (time, err) {
   this.sink1.error(time, err);
 };
 
-// Possibly useful:
-// - accum :: a -> Event (a -> a) -> Behavior a
-// - accum :: (a -> b -> c) -> a -> Event b -> Behavior c
-// - count :: Event a -> Behavior number
-// - when :: Behavior bool -> Event a -> Event a
-
 // sample :: Event a -> Behavior b -> Event b
 // Sample a behavior at all the event times
 // Returns a new event stream whose events occur at the same
@@ -2634,40 +2628,32 @@ var Constant = (function (Behavior) {
   return Constant;
 }(Behavior));
 
-// computed :: (Time -> a -> b) -> Behavior b
-// A behavior computed by applying a function to the
-// event occurrence times and values that are used to
-// sample it
-var computed = function (f) { return new Computed(f); };
-
-var Computed = (function (Behavior) {
-  function Computed (f) {
-    Behavior.call(this);
-    this.f = f;
+var Time = (function (Behavior) {
+  function Time () {
+    Behavior.apply(this, arguments);
   }
 
-  if ( Behavior ) Computed.__proto__ = Behavior;
-  Computed.prototype = Object.create( Behavior && Behavior.prototype );
-  Computed.prototype.constructor = Computed;
+  if ( Behavior ) Time.__proto__ = Behavior;
+  Time.prototype = Object.create( Behavior && Behavior.prototype );
+  Time.prototype.constructor = Time;
 
-  Computed.prototype.sample = function sample$$2 (event) {
-    return mapWithTime(this.f, event)
+  Time.prototype.sample = function sample$$2 (event) {
+    return mapWithTime(function (t, _) { return t; }, event)
   };
 
-  Computed.prototype.snapshot = function snapshot (g, event) {
-    var f = this.f;
-    return mapWithTime(function (t, a) { return g(a, f(t, a)); }, event)
+  Time.prototype.snapshot = function snapshot (g, event) {
+    return mapWithTime(function (t, a) { return g(a, t); }, event)
   };
 
-  return Computed;
+  return Time;
 }(Behavior));
 
 // time :: Behavior Time
 // A behavior whose value is the current time, as reported
 // by whatever scheduler is in use (not wall clock time)
-var time = computed(function (t, _) { return t; });
+var time = new Time();
 
-// step :: a -> Event a -> Behavior a
+// fromStream :: a -> Event a -> Behavior a
 // A behavior that starts with an initial value, and then
 // changes discretely to the value of each update event.
 
@@ -3572,7 +3558,7 @@ var defaultScheduler = new Scheduler(new ClockTimer(), new Timeline());
 /** @author John Hann */
 
 function subscribe (subscriber, stream) {
-  if (subscriber == null || typeof subscriber !== 'object') {
+  if (Object(subscriber) !== subscriber) {
     throw new TypeError('subscriber must be an object')
   }
 
@@ -6831,7 +6817,7 @@ Timeline$1.prototype.add = function add (st) {
 };
 
 Timeline$1.prototype.remove = function remove$$1 (st) {
-  var i = binarySearch$1(st.time, this.tasks);
+  var i = binarySearch$1(getTime(st), this.tasks);
 
   if (i >= 0 && i < this.tasks.length) {
     var at = findIndex$1(st, this.tasks[i].events);
@@ -6890,23 +6876,52 @@ function runReadyTasks (runTask, events, tasks) { // eslint-disable-line complex
   return tasks
 }
 
-function insertByTime$1 (task, timeslots) { // eslint-disable-line complexity
+function insertByTime$1 (task, timeslots) {
   var l = timeslots.length;
+  var time = getTime(task);
 
   if (l === 0) {
-    timeslots.push(newTimeslot$1(task.time, [task]));
+    timeslots.push(newTimeslot$1(time, [task]));
     return
   }
 
-  var i = binarySearch$1(task.time, timeslots);
+  var i = binarySearch$1(time, timeslots);
 
   if (i >= l) {
-    timeslots.push(newTimeslot$1(task.time, [task]));
-  } else if (task.time === timeslots[i].time) {
-    timeslots[i].events.push(task);
+    timeslots.push(newTimeslot$1(time, [task]));
   } else {
-    timeslots.splice(i, 0, newTimeslot$1(task.time, [task]));
+    insertAtTimeslot(task, timeslots, time, i);
   }
+}
+
+function insertAtTimeslot (task, timeslots, time, i) {
+  var timeslot = timeslots[i];
+  if (time === timeslot.time) {
+    addEvent(task, timeslot.events, time);
+  } else {
+    timeslots.splice(i, 0, newTimeslot$1(time, [task]));
+  }
+}
+
+function addEvent (task, events) {
+  if (events.length === 0 || task.time >= events[events.length - 1].time) {
+    events.push(task);
+  } else {
+    spliceEvent(task, events);
+  }
+}
+
+function spliceEvent (task, events) {
+  for (var j = 0; j < events.length; j++) {
+    if (task.time < events[j].time) {
+      events.splice(j, 0, task);
+      break
+    }
+  }
+}
+
+function getTime (scheduledTask) {
+  return Math.floor(scheduledTask.time)
 }
 
 function removeAllFrom$1 (f, timeslot) {
@@ -6939,8 +6954,12 @@ var newTimeslot$1 = function (t, events) { return ({ time: t, events: events });
 
 /*global setTimeout, clearTimeout*/
 
-var ClockTimer$1 = function ClockTimer () {
-  this.now = Date.now;
+var ClockTimer$1 = function ClockTimer (clock) {
+  this._clock = clock;
+};
+
+ClockTimer$1.prototype.now = function now () {
+  return this._clock.now()
 };
 
 ClockTimer$1.prototype.setTimer = function setTimer (f, dt) {
@@ -6976,12 +6995,48 @@ function runAsap$1 (f) {
 
 /** @license MIT License (c) copyright 2010-2017 original author or authors */
 
-var _newScheduler = function (timer, timeline) { return new Scheduler$1(timer, timeline); };
+/*global performance, process*/
 
-var newTimeline = function () { return new Timeline$1(); };
-var newClockTimer = function () { return new ClockTimer$1(); };
+var RelativeClock = function RelativeClock (clock, origin) {
+  this.origin = origin;
+  this.clock = clock;
+};
 
-var newDefaultScheduler = function () { return _newScheduler(newClockTimer(), newTimeline()); };
+RelativeClock.prototype.now = function now () {
+  return this.clock.now() - this.origin
+};
+
+var HRTimeClock = function HRTimeClock (hrtime, origin) {
+  this.origin = origin;
+  this.hrtime = hrtime;
+};
+
+HRTimeClock.prototype.now = function now () {
+  var hrt = this.hrtime(this.origin);
+  return (hrt[0] * 1e9 + hrt[1]) / 1e6
+};
+
+var clockRelativeTo = function (clock) { return new RelativeClock(clock, clock.now()); };
+
+var newPerformanceClock = function () { return clockRelativeTo(performance); };
+
+var newDateClock = function () { return clockRelativeTo(Date); };
+
+var newHRTimeClock = function () { return new HRTimeClock(process.hrtime, process.hrtime()); };
+
+var newPlatformClock = function () {
+  if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+    return newPerformanceClock()
+  } else if (typeof process !== 'undefined' && typeof process.hrtime === 'function') {
+    return newHRTimeClock()
+  }
+
+  return newDateClock()
+};
+
+var newDefaultScheduler = function () { return new Scheduler$1(newDefaultTimer(), new Timeline$1()); };
+
+var newDefaultTimer = function () { return new ClockTimer$1(newPlatformClock()); };
 
 // @flow
 // inputById :: String -> HTMLInputElement
