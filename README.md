@@ -13,7 +13,7 @@ Because they are defined for all real number values of time, a Behavior must be 
 Here's a simple example.  Note that because `clock` is "pull", it does no work at the instants between clicks, where it is *not* being sampled.
 
 ```js
-import { time } from '@most/behave'
+import { time } from '@briancavalier/most-behavior'
 import { click } from '@most/dom-event'
 
 // A Behavior that always represents milliseconds since the application started
@@ -22,6 +22,8 @@ const clock = time
 // Sample the clock each time the user clicks
 const timeAtEachClick = sample(click(document), clock)
 ```
+
+For now, [see the examples dir](examples) for more realistic code, how to run a `@most/core` app that integrates behaviors, etc.
 
 ## API
 
