@@ -20,22 +20,28 @@ const numberValue = compose(map(input => Number(input.value)), always)
 const add = (x, y) => x + y
 
 // x :: Behavior Number
+// x is the value of the #x input at all times
+// note that x is not a change event, it's the value over time
 const x = numberValue(inputById('x'))
 
 // y :: Behavior Number
+// Similarly, y is the value of the #y input at all times
 const y = numberValue(inputById('y'))
 
 // z :: Behavior Number
-// z is x + y at all points in time
+// z is x + y at all times
 const z = liftA2(add, x, y)
 
 // inputEvents :: Stream InputEvent
-const inputEvents = input(document.getElementById('container')).source
+// All the input events that will occur in container
+const inputEvents = input(document.getElementById('container'))
 
 // render :: HTMLInputElement -> Number -> void
 const render = el => result => el.value = String(result)
 
 // update :: HTMLInputElement -> Stream String
+// Sample z at all the instants input events occur in container
+// and the value
 const update = compose(tap(render(inputById('z'))), sample(inputEvents))
 
 // Run the app

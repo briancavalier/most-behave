@@ -1,5 +1,5 @@
 // @flow
-import { time, map, sample } from '../../src/index'
+import { time, sample } from '../../src/index'
 import { periodic, map as mapE, filter, switchLatest, startWith, tap, runEffects } from '@most/core'
 import { newDefaultScheduler } from '@most/scheduler'
 import { click } from '@most/dom-event'

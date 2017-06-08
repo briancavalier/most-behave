@@ -7054,22 +7054,28 @@ var numberValue = compose$1(map$$2(function (input$$1) { return Number(input$$1.
 var add = function (x, y) { return x + y; };
 
 // x :: Behavior Number
+// x is the value of the #x input at all times
+// note that x is not a change event, it's the value over time
 var x = numberValue(inputById('x'));
 
 // y :: Behavior Number
+// Similarly, y is the value of the #y input at all times
 var y = numberValue(inputById('y'));
 
 // z :: Behavior Number
-// z is x + y at all points in time
+// z is x + y at all times
 var z = liftA2(add, x, y);
 
 // inputEvents :: Stream InputEvent
-var inputEvents = input(document.getElementById('container')).source;
+// All the input events that will occur in container
+var inputEvents = input(document.getElementById('container'));
 
 // render :: HTMLInputElement -> Number -> void
 var render = function (el) { return function (result) { return el.value = String(result); }; };
 
 // update :: HTMLInputElement -> Stream String
+// Sample z at all the instants input events occur in container
+// and the value
 var update = compose$1(tap$$1(render(inputById('z'))), sample$$2(inputEvents));
 
 // Run the app
