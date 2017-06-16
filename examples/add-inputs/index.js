@@ -39,10 +39,10 @@ const inputEvents = input(document.getElementById('container'))
 // render :: HTMLInputElement -> Number -> void
 const render = el => result => el.value = String(result)
 
-// update :: HTMLInputElement -> Stream String
+// updateFrom :: Behavior Number -> Stream void
 // Sample z at all the instants input events occur in container
-// and the value
-const update = compose(tap(render(inputById('z'))), sample(inputEvents))
+// and render the sampled value into the `#z` input element's value
+const updateFrom = compose(tap(render(inputById('z'))), sample(inputEvents))
 
 // Run the app
-runEffects(update(z), newDefaultScheduler())
+runEffects(updateFrom(z), newDefaultScheduler())

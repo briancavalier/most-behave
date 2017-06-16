@@ -51,8 +51,8 @@
     "prepublish": "npm run build"
   },
   "dependencies": {
-    "@most/core": "^0.7.1",
+    "@most/core": "^0.8.0",
     "@most/prelude": "^1.6.0",
-    "@most/types": "^0.5.0"
+    "@most/types": "^0.8.0"
   }
 }
