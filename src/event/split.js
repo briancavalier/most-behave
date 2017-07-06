@@ -1,3 +1,4 @@
+import { disposeNone } from '@most/disposable'
 
 export const split = stream => {
   const sp = new SplitStream(stream)
@@ -8,10 +9,6 @@ const nullSink = {
   event (t, x) {},
   end (t) {},
   error (t, x) {}
-}
-
-const nullDisposable = {
-  dispose () {}
 }
 
 class SplitDisposable {
@@ -39,7 +36,7 @@ class SplitStream {
     this.source = source
     this.sink0 = nullSink
     this.sink1 = nullSink
-    this.disposable = nullDisposable
+    this.disposable = disposeNone()
   }
 
   run (sink, scheduler) {

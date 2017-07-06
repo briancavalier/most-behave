@@ -75,9 +75,13 @@ Allow events only when a Behavior's value is `true`.
 
 Create a Behavior with an initial value and an Event Stream carrying update functions.
 
-### accum :: (a &rarr; b &rarr; a) &rarr; a &rarr; Stream b &rarr; Behavior a
+### scanB :: (a &rarr; b &rarr; a) &rarr; a &rarr; Stream b &rarr; Behavior a
 
-Like scan, but produces a Behavior.
+Like scan, but produces a Behavior.  Needs a helpful name ...
+
+### scanB :: (a &rarr; b &rarr; Behavior a) &rarr; Behavior a &rarr; Stream b &rarr; Behavior b
+
+Generalized scan for Behaviors.  When event occurs, sample Behavior, and apply a function that creates a new Behavior.  Somewhat like `switch`.  Needs a helpful name ...
 
 ### count :: Stream a &rarr; Behavior number
 
