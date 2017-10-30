@@ -25,41 +25,51 @@ import { time } from '@briancavalier/most-behavior'
 import { click } from '@most/dom-event'
 
 // A Behavior that always represents milliseconds since the application started
-const clock = time
+const clock = time()
 
 // Sample the clock each time the user clicks
-const timeAtEachClick = sample(click(document), clock)
+const timeAtEachClick = sample(clock, click(document))
 ```
 
 For now, [see the examples dir](examples) for more realistic code, how to run a `@most/core` app that integrates behaviors, etc.
 
 ## API
 
-### time :: Behavior number
+### Creating Behaviors
+
+#### time :: () &rarr; Behavior number
 
 A behavior that represents the current time in milliseconds since the application started.
 
-### always :: a &rarr; Behavior a
+#### always :: a &rarr; Behavior a
 
 Create a Behavior whose value is always `a`.
 
-### fromStream :: a &rarr; Stream a &rarr; Behavior a
+#### step :: a &rarr; Stream a &rarr; Behavior a
 
 Create a Behavior that starts with an initial value and updates to each new value in the Event Stream.
 
-### map :: (a &rarr; b) &rarr; Behavior a &rarr; Behavior b
+### Transforming Behaviors
+
+#### map :: (a &rarr; b) &rarr; Behavior a &rarr; Behavior b
 
 Apply a function to a Behavior at all points in time.
 
-### liftA2 :: (a &rarr; b &rarr; c) &rarr; Behavior a &rarr; Behavior b &rarr; Behavior c
+#### apply :: Behavior (a &rarr; b) &rarr; Behavior a &rarr; Behavior b
+
+Apply a (time-varying) function to a Behavior at all points in time.
+
+#### liftA2 :: (a &rarr; b &rarr; c) &rarr; Behavior a &rarr; Behavior b &rarr; Behavior c
 
 Apply a function to 2 Behaviors at all points in time.
 
-### sample :: Stream a &rarr; Behavior b &rarr; Stream b
+### Sampling Behaviors
+
+#### sample :: Behavior a &rarr; Stream b &rarr; Stream a
 
 Sample a Behavior's value at every occurrence of an Event Stream.
 
-### snapshot :: (a &rarr; b &rarr; c) &rarr; Stream a &rarr; Behavior b &rarr; Stream c
+#### snapshot :: (a &rarr; b &rarr; c) &rarr; Behavior a &rarr; Stream b &rarr; Stream c
 
 Sample a Behavior at every occurrence of an event, and compute a new event from the (event, sample) pair.
 
