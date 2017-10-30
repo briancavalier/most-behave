@@ -42,6 +42,7 @@
     "build:dist": "mkdir -p dist && rollup -c && flow-copy-source src dist",
     "build:add-inputs": "rollup -c examples/rollup.config.js -o examples/add-inputs/app.js examples/add-inputs/index.js",
     "build:simple-clock": "rollup -c examples/rollup.config.js -o examples/simple-clock/app.js examples/simple-clock/index.js",
+    "build:secret-combination": "rollup -c examples/rollup.config.js -o examples/secret-combination/app.js examples/secret-combination/index.js",
     "test": "npm run test:lint && npm run test:unit",
     "test:unit": "nyc mocha",
     "test:lint": "standard --fix --verbose 'src/*.js'",

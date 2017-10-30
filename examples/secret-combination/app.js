@@ -771,17 +771,6 @@ function runAt (t, x, sink) {
 
 var now = function (x) { return at(0, x); };
 
-/** @license MIT License (c) copyright 2010-2016 original author or authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-
-/**
- * Create a stream of events that occur at a regular period
- * @param {Number} period periodicity of events in millis
- * @returns {Stream} new stream of periodic events, the event value is undefined
- */
-var periodic$1 = function (period) { return new Periodic(period); };
-
 var Periodic = function Periodic (period) {
   this.period = period;
 };
@@ -2267,18 +2256,6 @@ function ready (buffers) {
   return true
 }
 
-/** @license MIT License (c) copyright 2010-2016 original author or authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-
-/**
- * Given a stream of streams, return a new stream that adopts the behavior
- * of the most recent inner stream.
- * @param {Stream} stream of streams on which to switch
- * @returns {Stream} switching stream
- */
-var switchLatest = function (stream) { return new Switch(stream); };
-
 var Switch = function Switch (source) {
   this.source = source;
 };
@@ -3122,7 +3099,7 @@ SnapshotTimeSink.prototype.end = function end (t    )     {
                                                
 // eslint-disable-line
 
-var sample =        function (b             , s           )            { return snapshot$$1(function (a, b) { return a; }, b, s); };
+
 
 var snapshot$$1 =           function (f             , b             , s           )            { return b(f, s); };
 
@@ -3168,30 +3145,52 @@ function tryEvent$1 (t, x, sink) {
 }
 
 //      
-// DOM Event helpers
+                                               
 var fail = function (s) { throw new Error(s) };
 var qs = function (s) { return document.querySelector(s) || fail((s + " not found")); };
 
-// Each button represents a sample rate value
-var click10ms = constant(periodic$1(10), click(qs('[name="10ms"]')));
-var click100ms = constant(periodic$1(100), click(qs('[name="100ms"]')));
-var click1s = constant(periodic$1(1000), click(qs('[name="1s"]')));
+var aClicks = constant('A', click(qs('[name=a]')));
+var bClicks = constant('B', click(qs('[name=b]')));
+var value = qs('.value');
 
-// Map button clicks to a periodic event stream we'll use to sample
-// the current time
-var clicks = mergeArray([click10ms, click100ms, click1s]);
-var sampler = switchLatest(startWith(periodic$1(1000), clicks));
+var isMatch = function (ref                )          {
+    var code = ref.code;
+    var elapsed = ref.elapsed;
 
-// Get the elapsed time by sampling
-var elapsed = sample(time(), sampler);
+    return elapsed < 5000 && code === 'ABBABA';
+};
 
-// Render output
-var render = function (el) { return function (ms) { return el.innerText = ((ms / 1000).toFixed(3)) + " seconds"; }; };
+// NOTE: buble is failing when using object spread here (i.e. `...ce`)
+var verify = function (isMatch                           )                                  { return function (ce) { return ({ code: ce.code, elapsed: ce.elapsed, match: isMatch(ce) }); }; };
 
-// We'll put the clock here
-var el = qs('#app');
+var codeAndTime = function (pairs                 )                 { return ({
+  code: pairs.map(function (ref) {
+    var value = ref.value;
 
-// Sample time at some interval and display it
-runEffects(tap(render(el), elapsed), newDefaultScheduler());
+    return value;
+  }).join(''),
+  elapsed: pairs[pairs.length - 1].time - pairs[0].time
+}); };
+
+var slidingWindow =     function (size        )                             { return compose(skip(1), scan(function (events, event) { return events.concat(event).slice(-size); }, [])); };
+
+var withTime =     function (s           )                          { return snapshot$$1(function (time$$1, value) { return ({ time: time$$1, value: value }); }, time(), s); };
+
+var render = function (ref             )         {
+    var code = ref.code;
+    var elapsed = ref.elapsed;
+    var match = ref.match;
+
+    return (code + " " + ((elapsed / 1000).toFixed(2)) + " secs " + (match ? 'MATCHED' : ''));
+};
+
+var results =
+  compose(tap(function (result) { value.innerText = render(result); }),
+  compose(map$1(verify(isMatch)),
+  compose(map$1(codeAndTime),
+  compose(slidingWindow(6),
+    withTime))));
+
+runEffects(results(merge(aClicks, bClicks)), newDefaultScheduler());
 
 }());
