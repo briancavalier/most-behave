@@ -1,4 +1,3 @@
-// @flow
 import { time, sample } from '../../src/index'
 import { periodic, map as mapE, filter, switchLatest, startWith, tap, runEffects } from '@most/core'
 import { newDefaultScheduler } from '@most/scheduler'
@@ -23,4 +22,4 @@ const clicks = filter(matches('button'), click(document))
 const sampler = switchLatest(mapE(periodic, startWith(1000, mapE(Number, mapE(getValue, clicks)))))
 
 // Sample time at some interval and display it
-runEffects(tap(render(el), sample(sampler, time)), newDefaultScheduler())
+runEffects(tap(render(el), sample(time(), sampler)), newDefaultScheduler())

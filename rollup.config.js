@@ -1,29 +1,40 @@
 import buble from 'rollup-plugin-buble'
+import flow from 'rollup-plugin-flow'
 import nodeResolve from 'rollup-plugin-node-resolve'
+import pkg from './package.json'
 
 export default {
-  entry: 'src/index.js',
+  input: 'src/index.js',
   plugins: [
+    flow(),
     buble(),
     nodeResolve({
       jsnext: true
     })
   ],
-  globals: {
-    '@most/prelude': 'mostPrelude',
-    '@most/core': 'mostCore'
-  },
-  targets: [
+  external: [
+    '@most/core',
+    '@most/scheduler',
+    '@most/disposable',
+    '@most/prelude'
+  ],
+  output: [
     {
-      dest: 'dist/index.js',
+      file: pkg.main,
       format: 'umd',
-      moduleName: 'mostBehave',
-      sourceMap: true
+      name: 'mostBehave',
+      sourcemap: true,
+      globals: {
+        '@most/core': 'mostCore',
+        '@most/scheduler': 'mostScheduler',
+        '@most/disposable': 'mostDisposable',
+        '@most/prelude': 'mostPrelude',
+      }
     },
     {
-      dest: 'dist/index.es.js',
+      file: pkg.module,
       format: 'es',
-      sourceMap: true
+      sourcemap: true
     }
   ]
 }

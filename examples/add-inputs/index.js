@@ -1,4 +1,3 @@
-// @flow
 import { always, map, liftA2, sample } from '../../src/index'
 import { input } from '@most/dom-event'
 import { newDefaultScheduler } from '@most/scheduler'
@@ -14,7 +13,7 @@ const inputById = id => {
 }
 
 // numberValue :: HTMLInputElement -> Behavior Number
-const numberValue = compose(map(input => Number(input.value)), always)
+const numberValue = input => map(input => Number(input.value), always(input))
 
 // add :: Number -> Number -> Number
 const add = (x, y) => x + y
@@ -42,7 +41,7 @@ const render = el => result => el.value = String(result)
 // updateFrom :: Behavior Number -> Stream void
 // Sample z at all the instants input events occur in container
 // and render the sampled value into the `#z` input element's value
-const updateFrom = compose(tap(render(inputById('z'))), sample(inputEvents))
+const updates = tap(render(inputById('z')), sample(z, inputEvents))
 
 // Run the app
-runEffects(updateFrom(z), newDefaultScheduler())
+runEffects(updates, newDefaultScheduler())
