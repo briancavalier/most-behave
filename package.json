@@ -1,7 +1,7 @@
 {
   "name": "@briancavalier/most-behavior",
   "description": "behave",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "Brian Cavalier <brian@briancavalier.com> (github.com/briancavalier)",
   "bugs": {
     "url": "https://github.com/briancavalier/most-behave/issues"
