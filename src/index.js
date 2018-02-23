@@ -1,6 +1,6 @@
 // @flow
 import type { Stream, Time } from '@most/types'
-import { snapshot as snapshotStream, now, multicast, zip } from '@most/core'
+import { snapshot as snapshotStream, now } from '@most/core'
 import { snapshotTime } from './snapshotTime'
 
 type Behavior <A> = <B, C> ((A, B) => C, Stream<B>) => Stream<C> // eslint-disable-line
@@ -32,7 +32,5 @@ export const apply = <A, B> (bf: Behavior<A => B>, ba: Behavior<A>): Behavior<B>
   liftA2((f, a) => f(a), bf, ba)
 
 export const liftA2 = <A, B, C> (f: (A, B) => C, ba: Behavior<A>, bb: Behavior<B>): Behavior<C> =>
-  <D, E> (g: (C, D) => E, s: Stream<D>): Stream<E> => {
-    const ms = multicast(s)
-    return snapshotStream(g, zip(f, sample(ba, ms), sample(bb, ms)), ms)
-  }
+  <D, E> (g: (C, D) => E, s: Stream<D>): Stream<E> =>
+    snapshot((a, [b, d]) => g(f(a, b), d), ba, snapshot((b, d) => [b, d], bb, s))
