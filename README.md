@@ -69,9 +69,9 @@ Apply a function to 2 Behaviors at all points in time.
 
 Sample a Behavior's value at every occurrence of an Event Stream.
 
-#### snapshot :: Behavior a &rarr; Stream b &rarr; Stream [a, b]
+#### snapshot :: Behavior a &rarr; Stream (a &arr; b) &rarr; Stream b
 
-Sample a Behavior at every occurrence of an event, and compute a new event from the (event, sample) pair.
+Sample a Behavior at every occurrence of an event, and compute a new event from the sampled value.
 
 ## Potential APIs
 

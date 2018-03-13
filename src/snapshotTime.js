@@ -2,30 +2,30 @@
 import type { Disposable, Scheduler, Sink, Stream, Time } from '@most/types'
 import type { Behavior } from './index'
 
-export const snapshotTime: Behavior<Time> = <A> (stream: Stream<A>): Stream<[Time, A]> =>
+export const snapshotTime: Behavior<Time> = <A> (stream: Stream<Time => A>): Stream<A> =>
   new SnapshotTime(stream)
 
 class SnapshotTime<A> {
-  source: Stream<A>
+  source: Stream<Time => A>
 
-  constructor (source: Stream<A>) {
+  constructor (source: Stream<Time => A>) {
     this.source = source
   }
 
-  run (sink: Sink<[Time, A]>, scheduler: Scheduler): Disposable {
+  run (sink: Sink<A>, scheduler: Scheduler): Disposable {
     return this.source.run(new SnapshotTimeSink(sink), scheduler)
   }
 }
 
 class SnapshotTimeSink<A> {
-  sink: Sink<[Time, A]>
+  sink: Sink<A>
 
-  constructor (sink: Sink<[Time, A]>) {
+  constructor (sink: Sink<A>) {
     this.sink = sink
   }
 
-  event (t: Time, a: A): void {
-    this.sink.event(t, [t, a])
+  event (t: Time, f: Time => A): void {
+    this.sink.event(t, f(t))
   }
 
   error (t: Time, e: Error): void {

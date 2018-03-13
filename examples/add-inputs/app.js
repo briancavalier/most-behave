@@ -1608,36 +1608,19 @@ var snapshot$$1 = /*#__PURE__*/curry3(snapshot$1);
 
 //      
 
-                                                             // eslint-disable-line
+                                                            
 
-var snapshot$$2 =        function (b             , s           )                 { return b(s); };
+var snapshot$$2 =        function (b             , s                )            { return b(s); };
 
-var sample =        function (b             , s           )            { return map$1(function (ref) {
-    var a = ref[0];
-    var _ = ref[1];
-
-    return a;
-    }, snapshot$$2(b, s)); };
+var sample =        function (b             , s           )            { return snapshot$$2(b, map$1(function (b) { return (function (a) { return a; }); }, s)); };
 
 var always =     function (a   )              { return step(now(a)); };
 
-var step =     function (sa           )              { return function (sb           )                 { return snapshot$$1(function (a, b) { return [a, b]; }, sa, sb); }; };
+var step =     function (sa           )              { return function (sab                )            { return snapshot$$1(function (a, f) { return f(a); }, sa, sab); }; };
 
-var map$3 =        function (f        , ba             )              { return function (sc           )                 { return map$1(function (ref) {
-      var a = ref[0];
-      var c = ref[1];
+var map$3 =        function (f        , ba             )              { return function (sbc                )            { return snapshot$$2(ba, map$1(function (bc) { return compose(bc, f); }, sbc)); }; };
 
-      return [f(a), c];
-      }, snapshot$$2(ba, sc)); }; };
-
-var liftA2 =           function (f             , ba             , bb             )              { return function (sd           )                 { return map$1(function (ref) {
-      var a = ref[0];
-      var ref_1 = ref[1];
-      var b = ref_1[0];
-      var d = ref_1[1];
-
-      return [f(a, b), d];
-      }, snapshot$$2(ba, snapshot$$2(bb, sd))); }; };
+var liftA2 =           function (f             , ba             , bb             )              { return function (scd                )            { return snapshot$$2(bb, snapshot$$2(ba, map$1(function (cd) { return (function (a) { return function (b) { return cd(f(a, b)); }; }); }, scd))); }; };
 
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
 

@@ -6,10 +6,10 @@ import { newDefaultScheduler } from '@most/scheduler'
 import { click } from '@most/dom-event'
 import { compose, append } from '@most/prelude'
 
-type TimeAndValue<A> = [Time, A]
+type TimeAndValue<A> = { time: Time, value: A }
 
-const timeOf = <A> (tv: TimeAndValue<A>): Time => tv[0]
-const valueOf = <A> (tv: TimeAndValue<A>): A => tv[1]
+const timeOf = <A> ({ time }: TimeAndValue<A>): Time => time
+const valueOf = <A> ({ value }: TimeAndValue<A>): A => value
 
 type TimeAndLetter = TimeAndValue<string>
 
@@ -44,7 +44,7 @@ const slidingWindow = <A> (size: number): (Stream<A> => Stream<A[]>) =>
     append(event, events).slice(-size), []))
 
 const withTime = <A> (s: Stream<A>): Stream<TimeAndValue<A>> =>
-  snapshot(time, s)
+  snapshot(time, map(value => time => ({ time, value }), s))
 
 const render = ({ code, elapsed, match }: MatchResult): string =>
   `${code} ${(elapsed / 1000).toFixed(2)} secs ${match ? 'MATCHED' : ''}`

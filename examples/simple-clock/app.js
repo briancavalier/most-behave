@@ -1855,22 +1855,22 @@ var tap$$1 = /*#__PURE__*/curry2(tap$1);
                                                                             
                                        
 
-var snapshotTime                 =     function (stream           )                    { return new SnapshotTime(stream); };
+var snapshotTime                 =     function (stream                   )            { return new SnapshotTime(stream); };
 
-var SnapshotTime = function SnapshotTime (source         ) {
+var SnapshotTime = function SnapshotTime (source                 ) {
   this.source = source;
 };
 
-SnapshotTime.prototype.run = function run (sink               , scheduler         )           {
+SnapshotTime.prototype.run = function run (sink       , scheduler         )           {
   return this.source.run(new SnapshotTimeSink(sink), scheduler)
 };
 
-var SnapshotTimeSink = function SnapshotTimeSink (sink               ) {
+var SnapshotTimeSink = function SnapshotTimeSink (sink       ) {
   this.sink = sink;
 };
 
-SnapshotTimeSink.prototype.event = function event (t    , a )     {
-  this.sink.event(t, [t, a]);
+SnapshotTimeSink.prototype.event = function event (t    , f         )     {
+  this.sink.event(t, f(t));
 };
 
 SnapshotTimeSink.prototype.error = function error (t    , e     )     {
@@ -1883,16 +1883,11 @@ SnapshotTimeSink.prototype.end = function end (t    )     {
 
 //      
 
-                                                             // eslint-disable-line
+                                                            
 
-var snapshot$$2 =        function (b             , s           )                 { return b(s); };
+var snapshot$$2 =        function (b             , s                )            { return b(s); };
 
-var sample =        function (b             , s           )            { return map$1(function (ref) {
-    var a = ref[0];
-    var _ = ref[1];
-
-    return a;
-    }, snapshot$$2(b, s)); };
+var sample =        function (b             , s           )            { return snapshot$$2(b, map$1(function (b) { return (function (a) { return a; }); }, s)); };
 
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
 

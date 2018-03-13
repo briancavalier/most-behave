@@ -1750,22 +1750,22 @@ var skip$$1 = /*#__PURE__*/curry2(skip$1);
                                                                             
                                        
 
-var snapshotTime                 =     function (stream           )                    { return new SnapshotTime(stream); };
+var snapshotTime                 =     function (stream                   )            { return new SnapshotTime(stream); };
 
-var SnapshotTime = function SnapshotTime (source         ) {
+var SnapshotTime = function SnapshotTime (source                 ) {
   this.source = source;
 };
 
-SnapshotTime.prototype.run = function run (sink               , scheduler         )           {
+SnapshotTime.prototype.run = function run (sink       , scheduler         )           {
   return this.source.run(new SnapshotTimeSink(sink), scheduler)
 };
 
-var SnapshotTimeSink = function SnapshotTimeSink (sink               ) {
+var SnapshotTimeSink = function SnapshotTimeSink (sink       ) {
   this.sink = sink;
 };
 
-SnapshotTimeSink.prototype.event = function event (t    , a )     {
-  this.sink.event(t, [t, a]);
+SnapshotTimeSink.prototype.event = function event (t    , f         )     {
+  this.sink.event(t, f(t));
 };
 
 SnapshotTimeSink.prototype.error = function error (t    , e     )     {
@@ -1778,9 +1778,9 @@ SnapshotTimeSink.prototype.end = function end (t    )     {
 
 //      
 
-                                                             // eslint-disable-line
+                                                            
 
-var snapshot$$2 =        function (b             , s           )                 { return b(s); };
+var snapshot$$2 =        function (b             , s                )            { return b(s); };
 
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
 
@@ -2241,10 +2241,18 @@ function tryEvent$1 (t, x, sink) {
 
 //      
 
-                                
+                                               
 
-var timeOf =     function (tv                 )       { return tv[0]; };
-var valueOf =     function (tv                 )    { return tv[1]; };
+var timeOf =     function (ref                 )       {
+  var time = ref.time;
+
+  return time;
+};
+var valueOf =     function (ref                 )    {
+  var value = ref.value;
+
+  return value;
+};
 
                                          
 
@@ -2279,7 +2287,7 @@ var codeAndTime = function (pairs                 )                 { return ({
 
 var slidingWindow =     function (size        )                             { return compose(skip$$1(1), scan$$1(function (events, event) { return append(event, events).slice(-size); }, [])); };
 
-var withTime =     function (s           )                          { return snapshot$$2(snapshotTime, s); };
+var withTime =     function (s           )                          { return snapshot$$2(snapshotTime, map$1(function (value) { return function (time) { return ({ time: time, value: value }); }; }, s)); };
 
 var render = function (ref             )         {
     var code = ref.code;
