@@ -3,7 +3,7 @@ import type { Stream, Time } from '@most/types'
 import { snapshot as snapshotStream, now, map as mapS } from '@most/core'
 import { snapshotTime } from './snapshotTime'
 
-export type Behavior <A> = <B> (Stream<B>) => Stream<[A, B]> // eslint-disable-line
+export type Behavior <A> = <B> (Stream<B>) => Stream<[A, B]>
 
 export const snapshot = <A, B> (b: Behavior<A>, s: Stream<B>): Stream<[A, B]> =>
   b(s)
