@@ -24,6 +24,13 @@ function reduce(f, z, a) {
   return r;
 }
 
+// compose :: (b -> c) -> (a -> b) -> (a -> c)
+var compose = function compose(f, g) {
+  return function (x) {
+    return f(g(x));
+  };
+};
+
 // curry2 :: ((a, b) -> c) -> (a -> b -> c)
 function curry2(f) {
   function curried(a, b) {
@@ -474,6 +481,45 @@ var Pipe = /*#__PURE__*/function () {
   return Pipe;
 }();
 
+/** @license MIT License (c) copyright 2010-2016 original author or authors */
+/** @author Brian Cavalier */
+/** @author John Hann */
+
+var Filter = /*#__PURE__*/function () {
+  function Filter(p, source) {
+    classCallCheck$2(this, Filter);
+
+    this.p = p;
+    this.source = source;
+  }
+
+  Filter.prototype.run = function run(sink, scheduler$$1) {
+    return this.source.run(new FilterSink(this.p, sink), scheduler$$1);
+  };
+
+  /**
+   * Create a filtered source, fusing adjacent filter.filter if possible
+   * @param {function(x:*):boolean} p filtering predicate
+   * @param {{run:function}} source source to filter
+   * @returns {Filter} filtered source
+   */
+
+
+  Filter.create = function create(p, source) {
+    if (isCanonicalEmpty(source)) {
+      return source;
+    }
+
+    if (source instanceof Filter) {
+      return new Filter(and(source.p, p), source.source);
+    }
+
+    return new Filter(p, source);
+  };
+
+  return Filter;
+}();
+
 var FilterSink = /*#__PURE__*/function (_Pipe) {
   inherits(FilterSink, _Pipe);
 
@@ -493,6 +539,32 @@ var FilterSink = /*#__PURE__*/function (_Pipe) {
 
   return FilterSink;
 }(Pipe);
+
+var and = function and(p, q) {
+  return function (x) {
+    return p(x) && q(x);
+  };
+};
+
+/** @license MIT License (c) copyright 2010-2016 original author or authors */
+/** @author Brian Cavalier */
+/** @author John Hann */
+
+var FilterMap = /*#__PURE__*/function () {
+  function FilterMap(p, f, source) {
+    classCallCheck$2(this, FilterMap);
+
+    this.p = p;
+    this.f = f;
+    this.source = source;
+  }
+
+  FilterMap.prototype.run = function run(sink, scheduler$$1) {
+    return this.source.run(new FilterMapSink(this.p, this.f, sink), scheduler$$1);
+  };
+
+  return FilterMap;
+}();
 
 var FilterMapSink = /*#__PURE__*/function (_Pipe) {
   inherits(FilterMapSink, _Pipe);
@@ -515,6 +587,51 @@ var FilterMapSink = /*#__PURE__*/function (_Pipe) {
 
   return FilterMapSink;
 }(Pipe);
+
+/** @license MIT License (c) copyright 2010-2016 original author or authors */
+/** @author Brian Cavalier */
+/** @author John Hann */
+
+var Map = /*#__PURE__*/function () {
+  function Map(f, source) {
+    classCallCheck$2(this, Map);
+
+    this.f = f;
+    this.source = source;
+  }
+
+  Map.prototype.run = function run(sink, scheduler$$1) {
+    // eslint-disable-line no-extend-native
+    return this.source.run(new MapSink(this.f, sink), scheduler$$1);
+  };
+
+  /**
+   * Create a mapped source, fusing adjacent map.map, filter.map,
+   * and filter.map.map if possible
+   * @param {function(*):*} f mapping function
+   * @param {{run:function}} source source to map
+   * @returns {Map|FilterMap} mapped source, possibly fused
+   */
+
+
+  Map.create = function create(f, source) {
+    if (isCanonicalEmpty(source)) {
+      return empty();
+    }
+
+    if (source instanceof Map) {
+      return new Map(compose(f, source.f), source.source);
+    }
+
+    if (source instanceof Filter) {
+      return new FilterMap(source.p, f, source.source);
+    }
+
+    return new Map(f, source);
+  };
+
+  return Map;
+}();
 
 var MapSink = /*#__PURE__*/function (_Pipe) {
   inherits(MapSink, _Pipe);
@@ -939,6 +1056,20 @@ var ContinueWithSink = /*#__PURE__*/function (_Pipe) {
 
   return ContinueWithSink;
 }(Pipe);
+
+/** @license MIT License (c) copyright 2010-2016 original author or authors */
+/** @author Brian Cavalier */
+/** @author John Hann */
+
+/**
+ * Transform each value in the stream by applying f to each
+ * @param {function(*):*} f mapping function
+ * @param {Stream} stream stream to map
+ * @returns {Stream} stream containing items transformed by f
+ */
+var map$2 = function map$$1(f, stream) {
+  return Map.create(f, stream);
+};
 
 /**
 * Perform a side effect for each item in the stream
@@ -1465,6 +1596,11 @@ var ThrottleSink = /*#__PURE__*/function (_Pipe) {
 // Observing
 
 var runEffects$$1 = /*#__PURE__*/curry2(runEffects$1);
+
+// -----------------------------------------------------------------------
+// Transforming
+
+var map$1 = /*#__PURE__*/curry2(map$2);
 var tap$$1 = /*#__PURE__*/curry2(tap$1);
 var snapshot$$1 = /*#__PURE__*/curry3(snapshot$1);
 
@@ -1472,24 +1608,36 @@ var snapshot$$1 = /*#__PURE__*/curry3(snapshot$1);
 
 //      
 
-                                                                 // eslint-disable-line
+                                                             // eslint-disable-line
 
-var sample =        function (b             , s           )            { return snapshot$$2(function (a, b) { return a; }, b, s); };
+var snapshot$$2 =        function (b             , s           )                 { return b(s); };
 
-var snapshot$$2 =           function (f             , b             , s           )            { return b(f, s); };
+var sample =        function (b             , s           )            { return map$1(function (ref) {
+    var a = ref[0];
+    var _ = ref[1];
+
+    return a;
+    }, snapshot$$2(b, s)); };
 
 var always =     function (a   )              { return step(now(a)); };
 
-var step =     function (sa           )              { return function (f             , sb           )            { return snapshot$$1(f, sa, sb); }; };
+var step =     function (sa           )              { return function (sb           )                 { return snapshot$$1(function (a, b) { return [a, b]; }, sa, sb); }; };
 
-var map$3 =        function (f        , b             )              { return function (g             , s           )            { return snapshot$$2(function (a, c) { return g(f(a), c); }, b, s); }; };
+var map$3 =        function (f        , ba             )              { return function (sc           )                 { return map$1(function (ref) {
+      var a = ref[0];
+      var c = ref[1];
 
-var liftA2 =           function (f             , ba             , bb             )              { return function (g             , s           )            { return snapshot$$2(function (a, ref) {
-      var b = ref[0];
-      var d = ref[1];
+      return [f(a), c];
+      }, snapshot$$2(ba, sc)); }; };
 
-      return g(f(a, b), d);
-      }, ba, snapshot$$2(function (b, d) { return [b, d]; }, bb, s)); }; };
+var liftA2 =           function (f             , ba             , bb             )              { return function (sd           )                 { return map$1(function (ref) {
+      var a = ref[0];
+      var ref_1 = ref[1];
+      var b = ref_1[0];
+      var d = ref_1[1];
+
+      return [f(a, b), d];
+      }, snapshot$$2(ba, snapshot$$2(bb, sd))); }; };
 
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
 

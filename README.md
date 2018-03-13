@@ -25,7 +25,7 @@ import { time } from '@briancavalier/most-behavior'
 import { click } from '@most/dom-event'
 
 // A Behavior that always represents milliseconds since the application started
-const clock = time()
+const clock = time
 
 // Sample the clock each time the user clicks
 const timeAtEachClick = sample(clock, click(document))
@@ -37,7 +37,7 @@ For now, [see the examples dir](examples) for more realistic code, how to run a 
 
 ### Creating Behaviors
 
-#### time :: () &rarr; Behavior number
+#### time :: Behavior number
 
 A behavior that represents the current time in milliseconds since the application started.
 
@@ -69,7 +69,7 @@ Apply a function to 2 Behaviors at all points in time.
 
 Sample a Behavior's value at every occurrence of an Event Stream.
 
-#### snapshot :: (a &rarr; b &rarr; c) &rarr; Behavior a &rarr; Stream b &rarr; Stream c
+#### snapshot :: Behavior a &rarr; Stream b &rarr; Stream [a, b]
 
 Sample a Behavior at every occurrence of an event, and compute a new event from the (event, sample) pair.
 

@@ -1,35 +1,31 @@
 // @flow
 import type { Disposable, Scheduler, Sink, Stream, Time } from '@most/types'
+import type { Behavior } from './index'
 
-export const snapshotTime = <A, B> (f: (Time, A) => B, stream: Stream<A>): Stream<B> =>
-  new SnapshotTime(f, stream)
+export const snapshotTime: Behavior<Time> = <A> (stream: Stream<A>): Stream<[Time, A]> =>
+  new SnapshotTime(stream)
 
-class SnapshotTime<A, B> {
-  f: (Time, A) => B
+class SnapshotTime<A> {
   source: Stream<A>
 
-  constructor (f: (Time, A) => B, source: Stream<A>) {
-    this.f = f
+  constructor (source: Stream<A>) {
     this.source = source
   }
 
-  run (sink: Sink<B>, scheduler: Scheduler): Disposable {
-    return this.source.run(new SnapshotTimeSink(this.f, sink), scheduler)
+  run (sink: Sink<[Time, A]>, scheduler: Scheduler): Disposable {
+    return this.source.run(new SnapshotTimeSink(sink), scheduler)
   }
 }
 
-class SnapshotTimeSink<A, B> {
-  f: (Time, A) => B
-  sink: Sink<B>
+class SnapshotTimeSink<A> {
+  sink: Sink<[Time, A]>
 
-  constructor (f: (Time, A) => B, sink: Sink<B>) {
-    this.f = f
+  constructor (sink: Sink<[Time, A]>) {
     this.sink = sink
   }
 
-  event (t: Time, x: A): void {
-    const f = this.f
-    this.sink.event(t, f(t, x))
+  event (t: Time, a: A): void {
+    this.sink.event(t, [t, a])
   }
 
   error (t: Time, e: Error): void {

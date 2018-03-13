@@ -26,7 +26,7 @@ const sampler: Stream<void> = switchLatest(startWith(periodic(1000), clicks))
 
 // Get the elapsed time by sampling time() at the associated rate each
 // time a button is clicked.
-const elapsed: Stream<Time> = sample(time(), sampler)
+const elapsed: Stream<Time> = sample(time, sampler)
 
 // Render output
 const render = el => ms =>

@@ -3,6 +3,19 @@
 
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
 
+// append :: a -> [a] -> [a]
+// a with x appended
+function append(x, a) {
+  var l = a.length;
+  var b = new Array(l + 1);
+  for (var i = 0; i < l; ++i) {
+    b[i] = a[i];
+  }
+
+  b[l] = x;
+  return b;
+}
+
 // map :: (a -> b) -> [a] -> [b]
 // transform each element with f
 function map(f, a) {
@@ -1735,26 +1748,24 @@ var skip$$1 = /*#__PURE__*/curry2(skip$1);
 
 //      
                                                                             
+                                       
 
-var snapshotTime =        function (f                , stream           )            { return new SnapshotTime(f, stream); };
+var snapshotTime                 =     function (stream           )                    { return new SnapshotTime(stream); };
 
-var SnapshotTime = function SnapshotTime (f              , source         ) {
-  this.f = f;
+var SnapshotTime = function SnapshotTime (source         ) {
   this.source = source;
 };
 
-SnapshotTime.prototype.run = function run (sink       , scheduler         )           {
-  return this.source.run(new SnapshotTimeSink(this.f, sink), scheduler)
+SnapshotTime.prototype.run = function run (sink               , scheduler         )           {
+  return this.source.run(new SnapshotTimeSink(sink), scheduler)
 };
 
-var SnapshotTimeSink = function SnapshotTimeSink (f              , sink       ) {
-  this.f = f;
+var SnapshotTimeSink = function SnapshotTimeSink (sink               ) {
   this.sink = sink;
 };
 
-SnapshotTimeSink.prototype.event = function event (t    , x )     {
-  var f = this.f;
-  this.sink.event(t, f(t, x));
+SnapshotTimeSink.prototype.event = function event (t    , a )     {
+  this.sink.event(t, [t, a]);
 };
 
 SnapshotTimeSink.prototype.error = function error (t    , e     )     {
@@ -1767,9 +1778,9 @@ SnapshotTimeSink.prototype.end = function end (t    )     {
 
 //      
 
-var snapshot$$2 =           function (f             , b             , s           )            { return b(f, s); };
+                                                             // eslint-disable-line
 
-var time = function ()                 { return snapshotTime; };
+var snapshot$$2 =        function (b             , s           )                 { return b(s); };
 
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
 
@@ -2230,10 +2241,10 @@ function tryEvent$1 (t, x, sink) {
 
 //      
 
-                        
-             
-          
- 
+                                
+
+var timeOf =     function (tv                 )       { return tv[0]; };
+var valueOf =     function (tv                 )    { return tv[1]; };
 
                                          
 
@@ -2262,17 +2273,13 @@ var isMatch = function (ref                )          {
 var verify = function (isMatch                           )                                  { return function (ce) { return ({ code: ce.code, elapsed: ce.elapsed, match: isMatch(ce) }); }; };
 
 var codeAndTime = function (pairs                 )                 { return ({
-  code: pairs.map(function (ref) {
-    var value = ref.value;
-
-    return value;
-  }).join(''),
-  elapsed: pairs[pairs.length - 1].time - pairs[0].time
+  code: pairs.map(valueOf).join(''),
+  elapsed: timeOf(pairs[pairs.length - 1]) - timeOf(pairs[0])
 }); };
 
-var slidingWindow =     function (size        )                             { return compose(skip$$1(1), scan$$1(function (events, event) { return events.concat(event).slice(-size); }, [])); };
+var slidingWindow =     function (size        )                             { return compose(skip$$1(1), scan$$1(function (events, event) { return append(event, events).slice(-size); }, [])); };
 
-var withTime =     function (s           )                          { return snapshot$$2(function (time$$1, value) { return ({ time: time$$1, value: value }); }, time(), s); };
+var withTime =     function (s           )                          { return snapshot$$2(snapshotTime, s); };
 
 var render = function (ref             )         {
     var code = ref.code;

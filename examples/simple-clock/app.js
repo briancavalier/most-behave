@@ -1843,31 +1843,34 @@ var runEffects$$1 = /*#__PURE__*/curry2(runEffects$1);
 // Extending
 
 var startWith$$1 = /*#__PURE__*/curry2(startWith$1);
+
+// -----------------------------------------------------------------------
+// Transforming
+
+var map$1 = /*#__PURE__*/curry2(map$2);
 var constant$$1 = /*#__PURE__*/curry2(constant$1);
 var tap$$1 = /*#__PURE__*/curry2(tap$1);
 
 //      
                                                                             
+                                       
 
-var snapshotTime =        function (f                , stream           )            { return new SnapshotTime(f, stream); };
+var snapshotTime                 =     function (stream           )                    { return new SnapshotTime(stream); };
 
-var SnapshotTime = function SnapshotTime (f              , source         ) {
-  this.f = f;
+var SnapshotTime = function SnapshotTime (source         ) {
   this.source = source;
 };
 
-SnapshotTime.prototype.run = function run (sink       , scheduler         )           {
-  return this.source.run(new SnapshotTimeSink(this.f, sink), scheduler)
+SnapshotTime.prototype.run = function run (sink               , scheduler         )           {
+  return this.source.run(new SnapshotTimeSink(sink), scheduler)
 };
 
-var SnapshotTimeSink = function SnapshotTimeSink (f              , sink       ) {
-  this.f = f;
+var SnapshotTimeSink = function SnapshotTimeSink (sink               ) {
   this.sink = sink;
 };
 
-SnapshotTimeSink.prototype.event = function event (t    , x )     {
-  var f = this.f;
-  this.sink.event(t, f(t, x));
+SnapshotTimeSink.prototype.event = function event (t    , a )     {
+  this.sink.event(t, [t, a]);
 };
 
 SnapshotTimeSink.prototype.error = function error (t    , e     )     {
@@ -1880,13 +1883,16 @@ SnapshotTimeSink.prototype.end = function end (t    )     {
 
 //      
 
-                                                                 // eslint-disable-line
+                                                             // eslint-disable-line
 
-var sample =        function (b             , s           )            { return snapshot$$2(function (a, b) { return a; }, b, s); };
+var snapshot$$2 =        function (b             , s           )                 { return b(s); };
 
-var snapshot$$2 =           function (f             , b             , s           )            { return b(f, s); };
+var sample =        function (b             , s           )            { return map$1(function (ref) {
+    var a = ref[0];
+    var _ = ref[1];
 
-var time = function ()                 { return snapshotTime; };
+    return a;
+    }, snapshot$$2(b, s)); };
 
 /** @license MIT License (c) copyright 2010-2016 original author or authors */
 
@@ -2368,7 +2374,7 @@ var sampler               = switchLatest(startWith$$1(periodic$1(1000), clicks))
 
 // Get the elapsed time by sampling time() at the associated rate each
 // time a button is clicked.
-var elapsed               = sample(time(), sampler);
+var elapsed               = sample(snapshotTime, sampler);
 
 // Render output
 var render = function (el) { return function (ms) { return el.innerText = ((ms / 1000).toFixed(3)) + " seconds"; }; };

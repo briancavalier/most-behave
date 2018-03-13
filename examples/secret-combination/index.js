@@ -4,12 +4,12 @@ import { time, snapshot } from '../../src'
 import { scan, merge, skip, constant, map, tap, runEffects } from '@most/core'
 import { newDefaultScheduler } from '@most/scheduler'
 import { click } from '@most/dom-event'
-import { compose } from '@most/prelude'
+import { compose, append } from '@most/prelude'
 
-type TimeAndValue<A> = {
-  time: Time,
-  value: A
-}
+type TimeAndValue<A> = [Time, A]
+
+const timeOf = <A> (tv: TimeAndValue<A>): Time => tv[0]
+const valueOf = <A> (tv: TimeAndValue<A>): A => tv[1]
 
 type TimeAndLetter = TimeAndValue<string>
 
@@ -35,16 +35,16 @@ const verify = (isMatch: CodeAndElapsed => boolean): (CodeAndElapsed => MatchRes
   (ce) => ({ code: ce.code, elapsed: ce.elapsed, match: isMatch(ce) })
 
 const codeAndTime = (pairs: TimeAndLetter[]): CodeAndElapsed => ({
-  code: pairs.map(({ value }) => value).join(''),
-  elapsed: pairs[pairs.length - 1].time - pairs[0].time
+  code: pairs.map(valueOf).join(''),
+  elapsed: timeOf(pairs[pairs.length - 1]) - timeOf(pairs[0])
 })
 
 const slidingWindow = <A> (size: number): (Stream<A> => Stream<A[]>) =>
   compose(skip(1), scan((events, event) =>
-    events.concat(event).slice(-size), []))
+    append(event, events).slice(-size), []))
 
 const withTime = <A> (s: Stream<A>): Stream<TimeAndValue<A>> =>
-  snapshot((time, value) => ({ time, value }), time(), s)
+  snapshot(time, s)
 
 const render = ({ code, elapsed, match }: MatchResult): string =>
   `${code} ${(elapsed / 1000).toFixed(2)} secs ${match ? 'MATCHED' : ''}`
