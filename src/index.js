@@ -1,6 +1,6 @@
 // @flow
-import type { Stream, Time } from '@most/types'
-import { snapshot as snapshotStream, now, map as mapS } from '@most/core'
+import type { Period, Stream, Time } from '@most/types'
+import { snapshot as snapshotStream, map as mapS, startWith } from '@most/core'
 import { snapshotTime } from './snapshotTime'
 
 export type Behavior <A> = <B> (Stream<B>) => Stream<[A, B]>
@@ -9,19 +9,20 @@ export const snapshot = <A, B> (b: Behavior<A>, s: Stream<B>): Stream<[A, B]> =>
   b(s)
 
 export const sample = <A, B> (b: Behavior<A>, s: Stream<B>): Stream<A> =>
-  mapS(([a, _]) => a, snapshot(b, s))
+  mapS(ab => ab[0], snapshot(b, s))
 
 export { snapshotTime as time }
 
 export const always = <A> (a: A): Behavior<A> =>
-  step(now(a))
+  <B> (sb: Stream<B>): Stream<[A, B]> =>
+    mapS(b => [a, b], sb)
 
 export const fromTime = <A> (f: Time => A): Behavior<A> =>
   map(f, snapshotTime)
 
-export const step = <A> (sa: Stream<A>): Behavior<A> =>
+export const step = <A> (a: A, sa: Stream<A>): Behavior<A> =>
   <B> (sb: Stream<B>): Stream<[A, B]> =>
-    snapshotStream((a, b) => [a, b], sa, sb)
+    snapshotStream((a, b) => [a, b], startWith(a, sa), sb)
 
 export const map = <A, B> (f: A => B, ba: Behavior<A>): Behavior<B> =>
   <C> (sc: Stream<C>): Stream<[B, C]> =>
