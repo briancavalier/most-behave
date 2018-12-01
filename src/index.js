@@ -1,5 +1,5 @@
 // @flow
-import type { Period, Stream, Time } from '@most/types'
+import type { Stream, Time } from '@most/types'
 import { snapshot as snapshotStream, map as mapS, startWith } from '@most/core'
 import { snapshotTime } from './snapshotTime'
 

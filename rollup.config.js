@@ -7,7 +7,9 @@ export default {
   input: 'src/index.js',
   plugins: [
     flow(),
-    buble(),
+    buble({
+      objectAssign: 'Object.assign'
+    }),
     nodeResolve({
       jsnext: true
     })
@@ -28,7 +30,7 @@ export default {
         '@most/core': 'mostCore',
         '@most/scheduler': 'mostScheduler',
         '@most/disposable': 'mostDisposable',
-        '@most/prelude': 'mostPrelude',
+        '@most/prelude': 'mostPrelude'
       }
     },
     {
