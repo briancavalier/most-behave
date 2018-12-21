@@ -1,5 +1,7 @@
 # Behavior
 
+[![Greenkeeper badge](https://badges.greenkeeper.io/briancavalier/most-behave.svg)](https://greenkeeper.io/)
+
 **EXPERIMENTAL** Don't use this for anything real ... yet.
 
 Continuous time-varying values for most.js.  Behaviors are the continuous complement to most.js discrete Event Streams, or, if you prefer, the "pull" complement to most.js "push" Event Streams.
