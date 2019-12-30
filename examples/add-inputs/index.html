@@ -1,14 +1,17 @@
 <!doctype html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <title>Add</title>
     <style>
-        body, input {
+        body,
+        input {
             font-family: "Droid Sans Mono", "Liberation Mono", Courier, monospace;
             font-size: 42px;
             text-align: center;
         }
+
         input {
             width: 18%;
             color: #111;
@@ -17,16 +20,19 @@
             text-align: right;
             outline: none;
         }
+
         input:focus {
             border-bottom: 1px solid #aaa;
             color: #2a2;
         }
     </style>
 </head>
+
 <body id="container">
-<input id="x" value="0" autofocus> +
-<input id="y" value="0"> =
-<input id="z" value="0" readonly>
+    <input id="x" value="0" type="number" autofocus> +
+    <input id="y" value="0" type="number"> =
+    <input id="z" value="0" readonly>
 </body>
 <script src="app.js"></script>
+
 </html>
