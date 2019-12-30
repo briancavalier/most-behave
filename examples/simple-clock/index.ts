@@ -1,13 +1,12 @@
-// @flow
-import type { Stream, Time } from '@most/types'
+import { Stream, Time } from '@most/types'
 import { time, sample } from '../../src'
 import { periodic, mergeArray, constant, switchLatest, startWith, tap, runEffects } from '@most/core'
 import { newDefaultScheduler } from '@most/scheduler'
 import { click } from '@most/dom-event'
 
 // DOM Event helpers
-const fail = s => { throw new Error(s) }
-const qs = s => document.querySelector(s) || fail(`${s} not found`)
+const fail = (s: string): never => { throw new Error(s) }
+const qs = (s: string): HTMLElement => document.querySelector(s) || fail(`${s} not found`)
 
 // Each button click is a higher-order event stream carrying a periodic
 // event stream representing a sample rate value. The event values are
@@ -29,7 +28,7 @@ const sampler: Stream<void> = switchLatest(startWith(periodic(1000), clicks))
 const elapsed: Stream<Time> = sample(time, sampler)
 
 // Render output
-const render = el => ms =>
+const render = (el: HTMLElement) => (ms: number) =>
   el.innerText = `${(ms / 1000).toFixed(3)} seconds`
 
 // We'll put the clock here
